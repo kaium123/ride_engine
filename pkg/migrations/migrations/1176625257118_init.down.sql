@@ -1,0 +1,11 @@
+ALTER TABLE rides DROP CONSTRAINT rides_driver_id_fkey;
+
+DROP TABLE drivers;
+
+ALTER TABLE rides DROP CONSTRAINT rides_customer_id_fkey;
+DROP TABLE customers;
+
+DROP TABLE IF EXISTS rides CASCADE;
+DROP TABLE IF EXISTS otp_records CASCADE;
+DROP TABLE IF EXISTS drivers CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;

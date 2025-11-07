@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  postgres:
+    platform: linux/amd64
+    image: "postgres:15.4"
+    ports:
+      - "5436:5432"
+    environment:
+      - POSTGRES_DB=ride_engine
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=secret
+    volumes:
+      - "./docker_volume/postgres:/var/lib/postgresql/data"
+      - "./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql"
+    container_name: ride_engine-postgres
+    networks:
+      - ride_engine_network
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27016:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=secret
+      - MONGO_INITDB_DATABASE=ride_engine
+    volumes:
+      - "./storage/mongodb:/data/db"
+      - "./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init.js:ro"
+    container_name: ride_engine-mongo
+    networks:
+      - ride_engine_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ride_engine-redis
+    ports:
+      - "6389:6379"
+    volumes:
+      - "./storage/redis:/data"
+    networks:
+      - ride_engine_network
+    command: redis-server --appendonly yes
+
+  # Optional: pgAdmin for PostgreSQL management
+#  pgadmin:
+#    image: dpage/pgadmin4:latest
+#    container_name: ride_engine_pgadmin
+#    restart: unless-stopped
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: admin@rideengine.com
+#      PGADMIN_DEFAULT_PASSWORD: admin
+#      PGADMIN_LISTEN_PORT: 80
+#    ports:
+#      - "5050:80"
+#    volumes:
+#      - pgadmin_data:/var/lib/pgadmin
+#    depends_on:
+#      - postgres
+#    networks:
+#      - ride_engine_network
+#
+#  # Optional: Mongo Express for MongoDB management
+#  mongo-express:
+#    image: mongo-express:latest
+#    container_name: ride_engine_mongo_express
+#    restart: unless-stopped
+#    environment:
+#      ME_CONFIG_MONGODB_ADMINUSERNAME: ride_engine
+#      ME_CONFIG_MONGODB_ADMINPASSWORD: ride_engine_password
+#      ME_CONFIG_MONGODB_URL: mongodb://ride_engine:ride_engine_password@mongodb:27017/
+#      ME_CONFIG_BASICAUTH_USERNAME: admin
+#      ME_CONFIG_BASICAUTH_PASSWORD: admin
+#    ports:
+#      - "8081:8081"
+#    depends_on:
+#      - mongodb
+#    networks:
+#      - ride_engine_network
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+#  pgadmin_data:
+#    driver: local
+
+networks:
+  ride_engine_network:
+    driver: bridge
