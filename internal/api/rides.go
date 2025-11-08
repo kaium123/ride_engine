@@ -7,10 +7,12 @@ import (
 )
 
 // registerRideRoutes registers all ride-related routes
-func (s *ApiServer) registerRideRoutes(e *echo.Echo, authMiddleware *middleware.AuthMiddleware, rideHandler *handler.RideHandler) {
-	e.POST("/api/v1/rides", rideHandler.RequestRide, authMiddleware.AuthEcho)
-	e.POST("/api/v1/rides/accept", rideHandler.AcceptRide, authMiddleware.AuthEcho)
-	e.POST("/api/v1/rides/start", rideHandler.StartRide, authMiddleware.AuthEcho)
-	e.POST("/api/v1/rides/complete", rideHandler.CompleteRide, authMiddleware.AuthEcho)
-	e.POST("/api/v1/rides/cancel", rideHandler.CancelRide, authMiddleware.AuthEcho)
+func (s *ApiServer) registerRideRoutes(e *echo.Group, authMiddleware *middleware.AuthMiddleware, rideHandler *handler.RideHandler) {
+	rides := e.Group("/rides")
+	rides.POST("/", rideHandler.RequestRide, authMiddleware.AuthEcho)
+	rides.POST("/accept", rideHandler.AcceptRide, authMiddleware.AuthEcho)
+	rides.POST("/start", rideHandler.StartRide, authMiddleware.AuthEcho)
+	rides.POST("/complete", rideHandler.CompleteRide, authMiddleware.AuthEcho)
+	rides.POST("/cancel", rideHandler.CancelRide, authMiddleware.AuthEcho)
+
 }

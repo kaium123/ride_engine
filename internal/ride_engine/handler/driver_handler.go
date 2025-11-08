@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"github.com/labstack/echo/v4"
@@ -42,6 +41,13 @@ type UpdateLocationRequest struct {
 
 type SetOnlineStatusRequest struct {
 	IsOnline bool `json:"is_online"`
+}
+
+type FindNearestDriversRequest struct {
+	Latitude  float64 `json:"latitude" validate:"required"`
+	Longitude float64 `json:"longitude" validate:"required"`
+	Radius    float64 `json:"radius"`
+	Limit     int     `json:"limit"`
 }
 
 // Register handles driver registration
@@ -234,48 +240,48 @@ func (h *DriverHandler) SetOnlineStatus(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param lat query number true "Latitude of the location"
-// @Param lng query number true "Longitude of the location"
-// @Param radius query number false "Search radius in meters (default: 3000)"
-// @Param limit query integer false "Maximum number of drivers to return (default: 5)"
+// @Param request body FindNearestDriversRequest true "Search parameters for nearest drivers"
 // @Success 200 {object} map[string]interface{} "List of nearest drivers"
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /rides/nearby [get]
+// @Router /rides/nearby [post]
 func (h *DriverHandler) FindNearestDrivers(c echo.Context) error {
 	ctx := c.Request().Context()
-	latStr := c.QueryParam("lat")
-	lngStr := c.QueryParam("lng")
-	radiusStr := c.QueryParam("radius")
-	limitStr := c.QueryParam("limit")
-
-	if latStr == "" || lngStr == "" {
-		logger.Error(ctx, errors.New("missing latitude, lng"))
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "lat and lng are required"})
+	var req FindNearestDriversRequest
+	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request body"})
 	}
 
-	lat, err1 := strconv.ParseFloat(latStr, 64)
-	lng, err2 := strconv.ParseFloat(lngStr, 64)
-	if err1 != nil || err2 != nil {
-		logger.Error(ctx, errors.New("invalid latitude, lng"))
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid coordinates"})
+	// Validate required fields
+	if req.Latitude == 0 && req.Longitude == 0 {
+		logger.Error(ctx, errors.New("missing latitude and longitude"))
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "latitude and longitude are required"})
 	}
 
+	// Validate coordinate ranges
+	if req.Latitude < -90 || req.Latitude > 90 {
+		logger.Error(ctx, errors.New("invalid latitude"))
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "latitude must be between -90 and 90"})
+	}
+
+	if req.Longitude < -180 || req.Longitude > 180 {
+		logger.Error(ctx, errors.New("invalid longitude"))
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "longitude must be between -180 and 180"})
+	}
+
+	// Set default values
 	radius := 3000.0
-	if radiusStr != "" {
-		if v, err := strconv.ParseFloat(radiusStr, 64); err == nil {
-			radius = v
-		}
+	if req.Radius > 0 {
+		radius = req.Radius
 	}
 
 	limit := 5
-	if limitStr != "" {
-		if v, err := strconv.Atoi(limitStr); err == nil {
-			limit = v
-		}
+	if req.Limit > 0 {
+		limit = req.Limit
 	}
 
-	driverIDs, err := h.service.GetNearestDrivers(ctx, lat, lng, radius, limit)
+	driverIDs, err := h.service.GetNearestDrivers(ctx, req.Latitude, req.Longitude, radius, limit)
 	if err != nil {
 		logger.Error(ctx, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})

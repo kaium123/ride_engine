@@ -28,6 +28,15 @@ echo "✅ Got token: ${CUSTOMER_TOKEN:0:30}..."
 
 # 3️⃣ Find nearby drivers
 echo "🚗 Finding nearest drivers for customer..."
-curl --location "$API_BASE/rides/nearby?lat=23.8103&lng=90.4125&radius=5000&limit=3" \
+curl --location "$API_BASE/rides/nearby" \
   --header "Authorization: Bearer $CUSTOMER_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "latitude": 23.8103,
+    "longitude": 90.4125,
+    "radius": 5000,
+    "limit": 3
+  }' \
   --silent | jq
+
+

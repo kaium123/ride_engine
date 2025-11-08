@@ -7,14 +7,15 @@ import (
 )
 
 // registerDriverRoutes registers all driver-related routes
-func (s *ApiServer) registerDriverRoutes(e *echo.Echo, authMiddleware *appMiddleware.AuthMiddleware, driverHandler *handler.DriverHandler) {
+func (s *ApiServer) registerDriverRoutes(e *echo.Group, authMiddleware *appMiddleware.AuthMiddleware, driverHandler *handler.DriverHandler) {
+	drivers := e.Group("/drivers")
 	// Public routes
-	e.POST("/api/v1/drivers/register", driverHandler.Register)
-	e.POST("/api/v1/drivers/login/request-otp", driverHandler.RequestOTP)
-	e.POST("/api/v1/drivers/login/verify-otp", driverHandler.VerifyOTP)
+	drivers.POST("/register", driverHandler.Register)
+	drivers.POST("/login/request-otp", driverHandler.RequestOTP)
+	drivers.POST("/login/verify-otp", driverHandler.VerifyOTP)
 
 	// Protected routes
-	e.POST("/api/v1/drivers/location", driverHandler.UpdateLocation, authMiddleware.AuthEcho)
-	e.POST("/api/v1/drivers/status", driverHandler.SetOnlineStatus)
-	e.GET("/api/v1/rides/nearby", driverHandler.FindNearestDrivers, authMiddleware.AuthEcho)
+	drivers.POST("/location", driverHandler.UpdateLocation, authMiddleware.AuthEcho)
+	drivers.POST("/status", driverHandler.SetOnlineStatus)
+	e.POST("/rides/nearby", driverHandler.FindNearestDrivers, authMiddleware.AuthEcho)
 }

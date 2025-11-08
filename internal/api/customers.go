@@ -6,7 +6,8 @@ import (
 )
 
 // registerCustomerRoutes registers all customer-related routes
-func (s *ApiServer) registerCustomerRoutes(e *echo.Echo, customerHandler *handler.CustomerHandler) {
-	e.POST("/api/v1/customers/register", customerHandler.Register)
-	e.POST("/api/v1/customers/login", customerHandler.Login)
+func (s *ApiServer) registerCustomerRoutes(e *echo.Group, customerHandler *handler.CustomerHandler) {
+	customers := e.Group("/customers")
+	customers.POST("/register", customerHandler.Register)
+	customers.POST("/login", customerHandler.Login)
 }

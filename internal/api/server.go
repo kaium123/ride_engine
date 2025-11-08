@@ -71,9 +71,11 @@ func (s *ApiServer) SetupRoutes() *echo.Echo {
 // registerRoutes registers all the API routes using route groups
 func (s *ApiServer) registerRoutes(e *echo.Echo, authMiddleware *appMiddleware.AuthMiddleware, customerHandler *handler.CustomerHandler, driverHandler *handler.DriverHandler, rideHandler *handler.RideHandler) {
 	// Register route groups
-	s.registerCustomerRoutes(e, customerHandler)
-	s.registerDriverRoutes(e, authMiddleware, driverHandler)
-	s.registerRideRoutes(e, authMiddleware, rideHandler)
+	api := e.Group("/api/v1")
+
+	s.registerCustomerRoutes(api, customerHandler)
+	s.registerDriverRoutes(api, authMiddleware, driverHandler)
+	s.registerRideRoutes(api, authMiddleware, rideHandler)
 
 	// Swagger UI
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
