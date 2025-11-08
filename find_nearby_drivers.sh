@@ -1,5 +1,33 @@
+#!/bin/bash
 
-token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJyb2xlIjoiY3VzdG9tZXIiLCJleHAiOjE3NjYxMDE0NDcsIm5iZiI6MTc2MjUwMTQ0NywiaWF0IjoxNzYyNTAxNDQ3fQ.FOueiSCOQgGvrfBlOJGiklxtG7-c9HKTxrC8tlmvlpE"
+API_BASE="http://localhost:8080/api/v1"
 
-curl --location 'http://localhost:8080/api/v1/rides/nearby?lat=23.8103&lng=90.4125&radius=5000&limit=3' \
---header "Authorization: Bearer $token"
+# 1️⃣ Register customer
+echo "👤 Registering customer..."
+curl -s --location "$API_BASE/customers/register" \
+  --header 'Content-Type: application/json' \
+  --data '{"email": "abc1@gmail.com", "phone": "01875113839"}' > /dev/null
+
+# 2️⃣ Login customer
+echo "🔑 Logging in customer..."
+CUSTOMER_LOGIN_RESP=$(curl -s --location "$API_BASE/customers/login" \
+  --header 'Content-Type: application/json' \
+  --data '{"email": "abc1@gmail.com", "phone": "01875113839"}')
+
+echo "🧩 Raw login response: $CUSTOMER_LOGIN_RESP"
+
+# Try to extract token — adjust based on your API’s actual response
+CUSTOMER_TOKEN=$(echo "$CUSTOMER_LOGIN_RESP" | jq -r '.token // .access_token // .data.token')
+
+if [ "$CUSTOMER_TOKEN" == "null" ] || [ -z "$CUSTOMER_TOKEN" ]; then
+  echo "❌ Failed to get customer token. Please check your login response above."
+  exit 1
+fi
+
+echo "✅ Got token: ${CUSTOMER_TOKEN:0:30}..."
+
+# 3️⃣ Find nearby drivers
+echo "🚗 Finding nearest drivers for customer..."
+curl --location "$API_BASE/rides/nearby?lat=23.8103&lng=90.4125&radius=5000&limit=3" \
+  --header "Authorization: Bearer $CUSTOMER_TOKEN" \
+  --silent | jq

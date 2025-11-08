@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/service"
 )
 
@@ -33,50 +33,55 @@ type AuthResponse struct {
 }
 
 // Register handles customer registration
-func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
+// @Summary Register a new customer
+// @Description Register a new customer with name, email, phone, and password
+// @Tags Customers
+// @Accept json
+// @Produce json
+// @Param request body RegisterCustomerRequest true "Customer registration details"
+// @Success 201 {object} AuthResponse "Customer registered successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Router /customers/register [post]
+func (h *CustomerHandler) Register(c echo.Context) error {
 	var req RegisterCustomerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	customer, token, err := h.service.Register(r.Context(), req.Name, req.Email, req.Phone, req.Password)
+	customer, token, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Phone, req.Password)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	SendJSON(w, http.StatusCreated, AuthResponse{
+	return c.JSON(http.StatusCreated, AuthResponse{
 		Customer: customer,
 		Token:    token,
 	})
 }
 
 // Login handles customer login
-func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
+// @Summary Login a customer
+// @Description Authenticate a customer with email and password
+// @Tags Customers
+// @Accept json
+// @Produce json
+// @Param request body LoginCustomerRequest true "Customer login credentials"
+// @Success 200 {object} AuthResponse "Login successful"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Router /customers/login [post]
+func (h *CustomerHandler) Login(c echo.Context) error {
 	var req LoginCustomerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	customer, token, err := h.service.Login(r.Context(), req.Email, req.Password)
+	customer, token, err := h.service.Login(c.Request().Context(), req.Email, req.Password)
 	if err != nil {
-		SendError(w, http.StatusUnauthorized, err)
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
 	}
 
-	SendJSON(w, http.StatusOK, AuthResponse{
+	return c.JSON(http.StatusOK, AuthResponse{
 		Customer: customer,
 		Token:    token,
 	})

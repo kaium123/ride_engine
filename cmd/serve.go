@@ -11,12 +11,10 @@ import (
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"github.com/spf13/cobra"
-	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/handler"
+	"vcs.technonext.com/carrybee/ride_engine/internal/api"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
-	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/service"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/config"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/database"
-	"vcs.technonext.com/carrybee/ride_engine/pkg/middleware"
 )
 
 var serveCmd = &cobra.Command{
@@ -63,57 +61,21 @@ func startServer() {
 	}
 	defer redisDB.Close()
 
-	// Initialize repositories
-	customerRepo := postgres.NewCustomerPostgresRepository(postgresDB)
-	driverRepo := postgres.NewDriverPostgresRepository(postgresDB)
-	rideRepo := postgres.NewRidePostgresRepository(postgresDB)
-	otpRepo := postgres.NewOTPPostgresRepository(postgresDB)
+	// Initialize API server and setup routes
+	apiServer := api.NewServer(cfg, postgresDB, mongoDB, redisDB)
+	e := apiServer.SetupRoutes()
 
-	// Initialize services
-	otpService := service.NewOTPService(redisDB.Client, otpRepo)
-	locationService := service.NewLocationService(mongoDB.Database)
-	customerService := service.NewCustomerService(customerRepo, cfg.JWT.Secret, cfg.JWT.Expiration, redisDB.Client)
-	driverService := service.NewDriverService(driverRepo, otpService, locationService, cfg.JWT.Secret, cfg.JWT.Expiration, redisDB.Client)
-	rideService := service.NewRideService(rideRepo, locationService)
-
-	// Initialize handlers
-	customerHandler := handler.NewCustomerHandler(customerService)
-	driverHandler := handler.NewDriverHandler(driverService)
-	rideHandler := handler.NewRideHandler(rideService)
-
-	mux := http.NewServeMux()
-	authMiddleware := middleware.NewAuthMiddleware(redisDB.Client, cfg.JWT.Secret)
-
-	mux.HandleFunc("/api/v1/customers/register", customerHandler.Register)
-	mux.HandleFunc("/api/v1/customers/login", customerHandler.Login)
-	mux.HandleFunc("/api/v1/drivers/register", driverHandler.Register)
-	mux.HandleFunc("/api/v1/drivers/login/request-otp", driverHandler.RequestOTP)
-	mux.HandleFunc("/api/v1/drivers/login/verify-otp", driverHandler.VerifyOTP)
-	mux.Handle("/api/v1/drivers/location", authMiddleware.Auth(http.HandlerFunc(driverHandler.UpdateLocation)))
-	mux.HandleFunc("/api/v1/drivers/status", driverHandler.SetOnlineStatus)
-	mux.Handle("/api/v1/rides/nearby", authMiddleware.Auth(http.HandlerFunc(driverHandler.FindNearestDrivers)))
-	mux.Handle("/api/v1/rides", authMiddleware.Auth(http.HandlerFunc(rideHandler.RequestRide)))
-	mux.Handle("/api/v1/rides/accept", authMiddleware.Auth(http.HandlerFunc(rideHandler.AcceptRide)))
-	mux.Handle("/api/v1/rides/start", authMiddleware.Auth(http.HandlerFunc(rideHandler.StartRide)))
-	mux.Handle("/api/v1/rides/complete", authMiddleware.Auth(http.HandlerFunc(rideHandler.CompleteRide)))
-	mux.Handle("/api/v1/rides/cancel", authMiddleware.Auth(http.HandlerFunc(rideHandler.CancelRide)))
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
-
-	server := &http.Server{
-		Addr:         ":" + cfg.Server.Port,
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+	// Configure Echo
+	e.Server.ReadTimeout = 15 * time.Second
+	e.Server.WriteTimeout = 15 * time.Second
+	e.Server.IdleTimeout = 60 * time.Second
 
 	// Print all routes
 	printRoutes(cfg.Server.Port)
 
+	// Start server in a goroutine
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := e.Start(":" + cfg.Server.Port); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Server failed: ", err)
 		}
 	}()
@@ -128,7 +90,7 @@ func startServer() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := e.Shutdown(ctx); err != nil {
 		logger.Fatal("Server forced to shutdown: ", err)
 	}
 

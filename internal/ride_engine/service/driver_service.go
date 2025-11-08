@@ -8,6 +8,7 @@ import (
 	"time"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/config"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/utils"
 )
 
@@ -72,6 +73,9 @@ func (s *DriverService) RequestOTP(ctx context.Context, phone string) error {
 	}
 
 	otp := s.otpService.GenerateOTP()
+	if config.GetConfig().Environment == "development" {
+		otp = "123456"
+	}
 
 	if err := s.otpService.SaveOTP(ctx, phone, otp, "driver_login"); err != nil {
 		return err

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
+	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/utils"
 )
@@ -32,7 +33,7 @@ func NewAuthMiddleware(redisClient *redis.Client, jwtSecret string) *AuthMiddlew
 	}
 }
 
-// Auth middleware for protected routes
+// Auth middleware for protected routes (http.Handler version)
 func (m *AuthMiddleware) Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cctx := r.Context()
@@ -86,6 +87,55 @@ func (m *AuthMiddleware) Auth(next http.Handler) http.Handler {
 	})
 }
 
+// AuthEcho middleware for Echo framework protected routes
+func (m *AuthMiddleware) AuthEcho(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		cctx := c.Request().Context()
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" {
+			logger.Error(cctx, "No authorization header found")
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "missing authorization header"})
+		}
+
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			logger.Error(cctx, "Invalid authorization header")
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid authorization header format"})
+		}
+
+		token := parts[1]
+
+		claims, err := utils.ValidateJWT(token, m.jwtSecret)
+		if err != nil {
+			logger.Error(cctx, "Invalid token")
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": fmt.Sprintf("invalid token: %v", err)})
+		}
+
+		key := fmt.Sprintf("jwt:user:%d", claims.UserID)
+		storedToken, err := m.redis.Get(c.Request().Context(), key).Result()
+		if err == redis.Nil {
+			logger.Error(cctx, "Token not found")
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "token expired or logged out"})
+		}
+		if err != nil {
+			logger.Error(cctx, "Invalid token")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to verify token"})
+		}
+		if storedToken != token {
+			logger.Error(cctx, "Invalid token")
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "token mismatch"})
+		}
+
+		// Set values in Echo context
+		c.Set("user_id", claims.UserID)
+		c.Set("user_role", claims.Role)
+		c.Set("driver_id", claims.UserID)
+
+		fmt.Println("driver id from JWT:", claims.UserID)
+		return next(c)
+	}
+}
+
 // RequireRole middleware to check user role
 func (m *AuthMiddleware) RequireRole(role string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -130,5 +180,21 @@ func sendError(w http.ResponseWriter, status int, message string) {
 
 func GetDriverID(ctx context.Context) (int64, bool) {
 	driverID, ok := ctx.Value(DriverIdKey).(int64)
+	return driverID, ok
+}
+
+// Echo-specific helper functions
+func GetUserIDFromEcho(c echo.Context) (int64, bool) {
+	userID, ok := c.Get("user_id").(int64)
+	return userID, ok
+}
+
+func GetUserRoleFromEcho(c echo.Context) (string, bool) {
+	role, ok := c.Get("user_role").(string)
+	return role, ok
+}
+
+func GetDriverIDFromEcho(c echo.Context) (int64, bool) {
+	driverID, ok := c.Get("driver_id").(int64)
 	return driverID, ok
 }

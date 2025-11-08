@@ -1,61 +1,60 @@
-# Driver 1 - Gulshan, Dhaka
+#!/bin/bash
 
-token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJyb2xlIjoiZHJpdmVyIiwiZXhwIjoxNzY2MTAxMzgxLCJuYmYiOjE3NjI1MDEzODEsImlhdCI6MTc2MjUwMTM4MX0.D1MtNtjuUQS_hklxT921nO3O6wn5a6GACNcMdsWdocA"
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7925, "longitude": 90.4078}'
+BASE_URL="http://localhost:8080/api/v1/drivers"
+OTP_CODE="123456" # assuming OTP verification bypassed or mocked as 123456
 
-# Driver 2 - Banani, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7940, "longitude": 90.4043}'
+# 10 driver phone numbers (slightly different)
+phones=(
+  "01875113841"
+  "01875113842"
+  "01875113843"
+  "01875113844"
+  "01875113845"
+  "01875113846"
+  "01875113847"
+  "01875113848"
+  "01875113849"
+  "01875113850"
+)
 
-# Driver 3 - Dhanmondi, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7461, "longitude": 90.3742}'
+# Corresponding locations (Dhaka area + 1 far away)
+latitudes=(23.7925 23.7940 23.7461 23.8223 23.8759 23.7805 23.7610 23.7678 23.7748 24.8103)
+longitudes=(90.4078 90.4043 90.3742 90.3654 90.3795 90.4264 90.3580 90.4013 90.3629 91.4125)
 
-# Driver 4 - Mirpur, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.8223, "longitude": 90.3654}'
+for i in ${!phones[@]}; do
+  phone=${phones[$i]}
+  lat=${latitudes[$i]}
+  lng=${longitudes[$i]}
 
-# Driver 5 - Uttara, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.8759, "longitude": 90.3795}'
+  echo "=== Registering driver ${phone} ==="
+  curl -s --location "${BASE_URL}/register" \
+    --header 'Content-Type: application/json' \
+    --data "{\"phone\": \"${phone}\"}" > /dev/null
 
-# Driver 6 - Badda, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7805, "longitude": 90.4264}'
+  echo "Requesting OTP for ${phone}"
+  curl -s --location "${BASE_URL}/login/request-otp" \
+    --header 'Content-Type: application/json' \
+    --data "{\"phone\": \"${phone}\"}" > /dev/null
 
-# Driver 7 - Mohammadpur, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7610, "longitude": 90.3580}'
+  echo "Verifying OTP for ${phone}"
+  TOKEN=$(curl -s --location "${BASE_URL}/login/verify-otp" \
+    --header 'Content-Type: application/json' \
+    --data "{\"otp\": \"${OTP_CODE}\", \"phone\": \"${phone}\"}" \
+    | jq -r '.token')
 
-# Driver 8 - Tejgaon, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7678, "longitude": 90.4013}'
+  if [ "$TOKEN" == "null" ] || [ -z "$TOKEN" ]; then
+    echo "❌ Failed to get token for ${phone}"
+    continue
+  fi
 
-# Driver 9 - Shyamoli, Dhaka
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 23.7748, "longitude": 90.3629}'
+  echo "Updating location for ${phone} -> lat=${lat}, lng=${lng}"
+  curl -s --location "${BASE_URL}/location" \
+    --header 'Content-Type: application/json' \
+    --header "Authorization: Bearer ${TOKEN}" \
+    --data "{\"latitude\": ${lat}, \"longitude\": ${lng}}" > /dev/null
 
-# Driver 10 - Sylhet (for far-away test)
-curl --location 'http://localhost:8080/api/v1/drivers/location' \
---header 'Content-Type: application/json' \
---header "Authorization: Bearer $token" \
---data '{"latitude": 24.8103, "longitude": 91.4125}'
+  echo "✅ Driver ${phone} location updated"
+  echo
+done
+
+echo "🎯 All drivers registered, logged in, and location updated!"

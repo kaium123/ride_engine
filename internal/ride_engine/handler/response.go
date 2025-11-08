@@ -5,6 +5,16 @@ import (
 	"net/http"
 )
 
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Error string `json:"error" example:"Invalid request"`
+}
+
+// MessageResponse represents a success message response
+type MessageResponse struct {
+	Message string `json:"message" example:"Operation completed successfully"`
+}
+
 func SendJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

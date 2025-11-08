@@ -1,14 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-	"vcs.technonext.com/carrybee/ride_engine/pkg/middleware"
 
+	"github.com/labstack/echo/v4"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/service"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/middleware"
 )
 
 type DriverHandler struct {
@@ -44,172 +43,196 @@ type SetOnlineStatusRequest struct {
 }
 
 // Register handles driver registration
-func (h *DriverHandler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
+// @Summary Register a new driver
+// @Description Register a new driver with name, phone, and vehicle number
+// @Tags Drivers
+// @Accept json
+// @Produce json
+// @Param request body RegisterDriverRequest true "Driver registration details"
+// @Success 201 {object} map[string]interface{} "Driver registered successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Router /drivers/register [post]
+func (h *DriverHandler) Register(c echo.Context) error {
 	var req RegisterDriverRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	driver, err := h.service.Register(r.Context(), req.Name, req.Phone, req.VehicleNo)
+	driver, err := h.service.Register(c.Request().Context(), req.Name, req.Phone, req.VehicleNo)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	SendJSON(w, http.StatusCreated, driver)
+	return c.JSON(http.StatusCreated, driver)
 }
 
 // RequestOTP handles OTP generation and sending
-func (h *DriverHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
+// @Summary Request OTP for driver login
+// @Description Send an OTP to the driver's phone number for authentication
+// @Tags Drivers
+// @Accept json
+// @Produce json
+// @Param request body RequestOTPRequest true "Phone number to send OTP"
+// @Success 200 {object} MessageResponse "OTP sent successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Router /drivers/login/request-otp [post]
+func (h *DriverHandler) RequestOTP(c echo.Context) error {
 	var req RequestOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	err := h.service.RequestOTP(r.Context(), req.Phone)
+	err := h.service.RequestOTP(c.Request().Context(), req.Phone)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	SendMessage(w, http.StatusOK, "OTP sent successfully")
+	return c.JSON(http.StatusOK, MessageResponse{Message: "OTP sent successfully"})
 }
 
 // VerifyOTP handles OTP verification and login
-func (h *DriverHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
+// @Summary Verify OTP and login driver
+// @Description Verify the OTP sent to driver's phone and authenticate
+// @Tags Drivers
+// @Accept json
+// @Produce json
+// @Param request body VerifyOTPRequest true "Phone and OTP for verification"
+// @Success 200 {object} AuthResponse "Login successful"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Router /drivers/login/verify-otp [post]
+func (h *DriverHandler) VerifyOTP(c echo.Context) error {
 	var req VerifyOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	driver, token, err := h.service.VerifyOTP(r.Context(), req.Phone, req.OTP)
+	driver, token, err := h.service.VerifyOTP(c.Request().Context(), req.Phone, req.OTP)
 	if err != nil {
-		SendError(w, http.StatusUnauthorized, err)
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
 	}
 
-	SendJSON(w, http.StatusOK, AuthResponse{
+	return c.JSON(http.StatusOK, AuthResponse{
 		Customer: driver,
 		Token:    token,
 	})
 }
 
 // UpdateLocation handles driver location updates
-func (h *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodPut {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
-	driverID, ok := middleware.GetUserID(r.Context())
+// @Summary Update driver location
+// @Description Update the current location of the authenticated driver
+// @Tags Drivers
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateLocationRequest true "Driver's current location"
+// @Success 200 {object} MessageResponse "Location updated successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /drivers/location [post]
+func (h *DriverHandler) UpdateLocation(c echo.Context) error {
+	driverID, ok := middleware.GetUserIDFromEcho(c)
 	if !ok {
-		SendError(w, http.StatusUnauthorized, errors.New("missing driver ID in context"))
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
 	}
 	fmt.Println("Driver ID from context:", driverID)
 
-	role, ok := middleware.GetUserRole(r.Context())
+	role, ok := middleware.GetUserRoleFromEcho(c)
 	if !ok {
-		SendError(w, http.StatusUnauthorized, errors.New("missing role in context"))
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
 	}
 	if role != "driver" {
-		SendError(w, http.StatusUnauthorized, errors.New("invalid role in context"))
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
 	}
 
 	var req UpdateLocationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	err := h.service.UpdateLocation(r.Context(), driverID, req.Latitude, req.Longitude)
+	err := h.service.UpdateLocation(c.Request().Context(), driverID, req.Latitude, req.Longitude)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, err)
-		return
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 	}
 
-	SendMessage(w, http.StatusOK, "Location updated successfully")
+	return c.JSON(http.StatusOK, MessageResponse{Message: "Location updated successfully"})
 }
 
 // SetOnlineStatus handles driver online/offline status
-func (h *DriverHandler) SetOnlineStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodPut {
-		SendError(w, http.StatusMethodNotAllowed, http.ErrNotSupported)
-		return
-	}
-
-	driverID, ok := middleware.GetUserID(r.Context())
+// @Summary Set driver online/offline status
+// @Description Update whether the driver is available to accept rides
+// @Tags Drivers
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SetOnlineStatusRequest true "Driver's online status"
+// @Success 200 {object} MessageResponse "Status updated successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /drivers/status [post]
+func (h *DriverHandler) SetOnlineStatus(c echo.Context) error {
+	driverID, ok := middleware.GetUserIDFromEcho(c)
 	if !ok {
-		SendError(w, http.StatusUnauthorized, errors.New("missing driver ID in context"))
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
 	}
 	fmt.Println("Driver ID from context:", driverID)
 
-	role, ok := middleware.GetUserRole(r.Context())
+	role, ok := middleware.GetUserRoleFromEcho(c)
 	if !ok {
-		SendError(w, http.StatusUnauthorized, errors.New("missing role in context"))
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
 	}
 	if role != "driver" {
-		SendError(w, http.StatusUnauthorized, errors.New("invalid role in context"))
-		return
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
 	}
 
 	var req SetOnlineStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, err)
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	err := h.service.SetOnlineStatus(r.Context(), driverID, req.IsOnline)
+	err := h.service.SetOnlineStatus(c.Request().Context(), driverID, req.IsOnline)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, err)
-		return
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 	}
 
 	status := "offline"
 	if req.IsOnline {
 		status = "online"
 	}
-	SendMessage(w, http.StatusOK, "Driver is now "+status)
+	return c.JSON(http.StatusOK, MessageResponse{Message: "Driver is now " + status})
 }
 
-func (h *DriverHandler) FindNearestDrivers(w http.ResponseWriter, r *http.Request) {
-	latStr := r.URL.Query().Get("lat")
-	lngStr := r.URL.Query().Get("lng")
-	radiusStr := r.URL.Query().Get("radius")
-	limitStr := r.URL.Query().Get("limit")
+// FindNearestDrivers finds nearest available drivers
+// @Summary Find nearest drivers
+// @Description Find nearest available drivers within a specified radius
+// @Tags Rides
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param lat query number true "Latitude of the location"
+// @Param lng query number true "Longitude of the location"
+// @Param radius query number false "Search radius in meters (default: 3000)"
+// @Param limit query integer false "Maximum number of drivers to return (default: 5)"
+// @Success 200 {object} map[string]interface{} "List of nearest drivers"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /rides/nearby [get]
+func (h *DriverHandler) FindNearestDrivers(c echo.Context) error {
+	latStr := c.QueryParam("lat")
+	lngStr := c.QueryParam("lng")
+	radiusStr := c.QueryParam("radius")
+	limitStr := c.QueryParam("limit")
 
 	if latStr == "" || lngStr == "" {
-		http.Error(w, "lat and lng are required", http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "lat and lng are required"})
 	}
 
 	lat, err1 := strconv.ParseFloat(latStr, 64)
 	lng, err2 := strconv.ParseFloat(lngStr, 64)
 	if err1 != nil || err2 != nil {
-		http.Error(w, "invalid coordinates", http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid coordinates"})
 	}
 
 	radius := 3000.0
@@ -226,10 +249,9 @@ func (h *DriverHandler) FindNearestDrivers(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	driverIDs, err := h.service.GetNearestDrivers(r.Context(), lat, lng, radius, limit)
+	driverIDs, err := h.service.GetNearestDrivers(c.Request().Context(), lat, lng, radius, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 	}
 
 	resp := map[string]interface{}{
@@ -237,6 +259,5 @@ func (h *DriverHandler) FindNearestDrivers(w http.ResponseWriter, r *http.Reques
 		"count":   len(driverIDs),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	return c.JSON(http.StatusOK, resp)
 }

@@ -1,0 +1,508 @@
+basePath: /api/v1
+definitions:
+  handler.AuthResponse:
+    properties:
+      customer: {}
+      token:
+        type: string
+    type: object
+  handler.ErrorResponse:
+    properties:
+      error:
+        example: Invalid request
+        type: string
+    type: object
+  handler.LoginCustomerRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  handler.MessageResponse:
+    properties:
+      message:
+        example: Operation completed successfully
+        type: string
+    type: object
+  handler.RegisterCustomerRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+    type: object
+  handler.RegisterDriverRequest:
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+      vehicle_no:
+        type: string
+    type: object
+  handler.RequestOTPRequest:
+    properties:
+      phone:
+        type: string
+    type: object
+  handler.RequestRideRequest:
+    properties:
+      dropoff_lat:
+        type: number
+      dropoff_lng:
+        type: number
+      pickup_lat:
+        type: number
+      pickup_lng:
+        type: number
+    type: object
+  handler.SetOnlineStatusRequest:
+    properties:
+      is_online:
+        type: boolean
+    type: object
+  handler.UpdateLocationRequest:
+    properties:
+      latitude:
+        type: number
+      longitude:
+        type: number
+    type: object
+  handler.VerifyOTPRequest:
+    properties:
+      otp:
+        type: string
+      phone:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: mohammadkaiom79@gmail.com
+    name: Mohammad Kaium
+  description: |-
+    This is a comprehensive Ride Engine API server for managing customers, drivers, and rides.
+    The API provides endpoints for user registration, authentication, location tracking, and ride management.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Ride Engine API
+  version: "1.0"
+paths:
+  /customers/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a customer with email and password
+      parameters:
+      - description: Customer login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/handler.AuthResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Login a customer
+      tags:
+      - Customers
+  /customers/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new customer with name, email, phone, and password
+      parameters:
+      - description: Customer registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Customer registered successfully
+          schema:
+            $ref: '#/definitions/handler.AuthResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Register a new customer
+      tags:
+      - Customers
+  /drivers/location:
+    post:
+      consumes:
+      - application/json
+      description: Update the current location of the authenticated driver
+      parameters:
+      - description: Driver's current location
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateLocationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Location updated successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update driver location
+      tags:
+      - Drivers
+  /drivers/login/request-otp:
+    post:
+      consumes:
+      - application/json
+      description: Send an OTP to the driver's phone number for authentication
+      parameters:
+      - description: Phone number to send OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RequestOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP sent successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Request OTP for driver login
+      tags:
+      - Drivers
+  /drivers/login/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP sent to driver's phone and authenticate
+      parameters:
+      - description: Phone and OTP for verification
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/handler.AuthResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Verify OTP and login driver
+      tags:
+      - Drivers
+  /drivers/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new driver with name, phone, and vehicle number
+      parameters:
+      - description: Driver registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterDriverRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Driver registered successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Register a new driver
+      tags:
+      - Drivers
+  /drivers/status:
+    post:
+      consumes:
+      - application/json
+      description: Update whether the driver is available to accept rides
+      parameters:
+      - description: Driver's online status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SetOnlineStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status updated successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set driver online/offline status
+      tags:
+      - Drivers
+  /rides:
+    post:
+      consumes:
+      - application/json
+      description: Create a new ride request with pickup and dropoff locations
+      parameters:
+      - description: Ride request details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RequestRideRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Ride created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Request a new ride
+      tags:
+      - Rides
+  /rides/accept:
+    post:
+      consumes:
+      - application/json
+      description: Driver accepts a ride request
+      parameters:
+      - description: Ride ID to accept
+        in: query
+        name: ride_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ride accepted successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Accept a ride request
+      tags:
+      - Rides
+  /rides/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancel an active or pending ride
+      parameters:
+      - description: Ride ID to cancel
+        in: query
+        name: ride_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ride cancelled successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel a ride
+      tags:
+      - Rides
+  /rides/complete:
+    post:
+      consumes:
+      - application/json
+      description: Mark a ride as completed
+      parameters:
+      - description: Ride ID to complete
+        in: query
+        name: ride_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ride completed successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete a ride
+      tags:
+      - Rides
+  /rides/nearby:
+    get:
+      consumes:
+      - application/json
+      description: Find nearest available drivers within a specified radius
+      parameters:
+      - description: Latitude of the location
+        in: query
+        name: lat
+        required: true
+        type: number
+      - description: Longitude of the location
+        in: query
+        name: lng
+        required: true
+        type: number
+      - description: 'Search radius in meters (default: 3000)'
+        in: query
+        name: radius
+        type: number
+      - description: 'Maximum number of drivers to return (default: 5)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of nearest drivers
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Find nearest drivers
+      tags:
+      - Rides
+  /rides/start:
+    post:
+      consumes:
+      - application/json
+      description: Mark a ride as started
+      parameters:
+      - description: Ride ID to start
+        in: query
+        name: ride_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ride started successfully
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start a ride
+      tags:
+      - Rides
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

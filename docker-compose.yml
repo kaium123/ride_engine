@@ -1,6 +1,31 @@
 version: '3.8'
 
 services:
+  app:
+    build: .
+    container_name: ride_engine-app
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=ride_engine
+      - MONGODB_URI=mongodb://root:secret@mongodb:27017
+      - MONGODB_DATABASE=ride_engine
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVER_PORT=8080
+      - JWT_SECRET=your-secret-key-change-this-in-production
+      - JWT_EXPIRATION=24h
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    networks:
+      - ride_engine_network
+
   postgres:
     platform: linux/amd64
     image: "postgres:15.4"
@@ -42,6 +67,7 @@ services:
     networks:
       - ride_engine_network
     command: redis-server --appendonly yes
+
 
   # Optional: pgAdmin for PostgreSQL management
 #  pgadmin:

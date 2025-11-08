@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	Server      ServerConfig
+	Swagger     SwaggerConfig
 	Postgres    PostgresConfig
 	MongoDB     MongoDBConfig
 	Redis       RedisConfig
@@ -17,6 +18,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
+	Port string
+}
+
+type SwaggerConfig struct {
 	Port string
 }
 
@@ -48,12 +53,18 @@ type JWTConfig struct {
 
 var cnf Config
 
+func GetConfig() Config {
+	return cnf
+}
+
 func Load() *Config {
-	cnf = Config{}
-	return &Config{
+	cnf = Config{
 		Environment: getEnv("ENVIRONMENT", "development"),
 		Server: ServerConfig{
 			Port: getEnv("SERVER_PORT", "8080"),
+		},
+		Swagger: SwaggerConfig{
+			Port: getEnv("SWAGGER_PORT", "8081"),
 		},
 		Postgres: PostgresConfig{
 			Host:     getEnv("POSTGRES_HOST", "localhost"),
@@ -81,6 +92,7 @@ func Load() *Config {
 			Expiration: getEnvAsInt("JWT_EXPIRATION_HOURS", 1000),
 		},
 	}
+	return &cnf
 }
 
 func (c *PostgresConfig) DSN() string {

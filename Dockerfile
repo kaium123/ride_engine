@@ -1,51 +1,47 @@
-# Default to Go 1.11
-ARG GO_VERSION=1.25.1
+# Build stage
+FROM golang:1.25.1-alpine AS builder
 
-# Start from golang v1.11 base image
-FROM golang:${GO_VERSION}-alpine AS builder
+# Add Maintainer Info
+LABEL maintainer="Mohammad Kaium <mohammadkaiom79@gmail.com>"
 
-# Add Maintainer Infos
-LABEL maintainer="Mohammad Kaium <mohammadkaiom79&gmail.com>"
+# Install git and ca-certificates (needed for swagger and HTTPS)
+RUN apk add --no-cache git ca-certificates tzdata
 
-# Create the user and group files that will be used in the running container to
-# run the process as an unprivileged user.
-RUN mkdir /user && \
-    echo 'nobody:x:65534:65534:nobody:/:' > /user/passwd && \
-    echo 'nobody:x:65534:' > /user/group
+# Set working directory
+WORKDIR /app
 
-# Install the Certificate-Authority certificates for the app to be able to make
-# calls to HTTPS endpoints.
-RUN apk add --no-cache ca-certificates tzdata
+# Copy go mod files
+COPY go.mod go.sum ./
 
-# Set the working directory outside $GOPATH to enable the support for modules.
-WORKDIR /src
+# Download dependencies
+RUN go mod download
 
-# Import the code from the context.
-COPY ./ ./
+# Copy source code
+COPY . .
 
-# Build the Go app
-RUN CGO_ENABLED=0 GOFLAGS=-mod=vendor GOOS=linux go build -a -installsuffix 'static' -o /app ./cmd/api/*.go
-#RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o main.
+# Install swag CLI for generating swagger docs
+RUN go install github.com/swaggo/swag/cmd/swag@latest
 
-######## Start a new stage from scratch #######
-# Final stage: the running container.
-FROM scratch AS final
+# Generate swagger docs
+RUN swag init
 
-# Import the user and group files from the first stage.
-COPY --from=builder /user/group /user/passwd /etc/
-# Import the Certificate-Authority certificates for enabling HTTPS.
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-# Import the timzone data from build stage.
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-# Import the compiled executable from the first stage.
-COPY --from=builder /app /app
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ride_engine .
 
-# As we're going to run the executable as an unprivileged user, we can'tickerCompaniesRes bind
-# to ports below 1024.
-EXPOSE 15070
+# Final stage
+FROM alpine:latest
 
-# Perform any further action as an unprivileged user.
-USER nobody:nobody
+# Install ca-certificates for HTTPS
+RUN apk --no-cache add ca-certificates tzdata
 
-# Run the compiled binary.
-ENTRYPOINT ["/app"]
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/ride_engine .
+COPY --from=builder /app/docs ./docs
+
+# Expose port
+EXPOSE 8080
+
+# Run the binary
+CMD ["./ride_engine", "serve"]
