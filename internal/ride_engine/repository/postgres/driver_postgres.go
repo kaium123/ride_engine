@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"gorm.io/gorm"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
@@ -58,6 +59,7 @@ func (r *DriverPostgresRepository) Create(ctx context.Context, driver *domain.Dr
 
 	result := r.db.WithContext(ctx).Create(model)
 	if result.Error != nil {
+		logger.Error(ctx, "Failed to create driver model", result.Error)
 		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 			return ErrDriverAlreadyExists
 		}
@@ -73,6 +75,7 @@ func (r *DriverPostgresRepository) GetByID(ctx context.Context, id int64) (*doma
 
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&model)
 	if result.Error != nil {
+		logger.Error(ctx, "Failed to get driver model", result.Error)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, ErrDriverNotFound
 		}
@@ -87,6 +90,7 @@ func (r *DriverPostgresRepository) GetByPhone(ctx context.Context, phone string)
 
 	result := r.db.WithContext(ctx).Where("phone = ?", phone).First(&model)
 	if result.Error != nil {
+		logger.Error(ctx, "Failed to get driver model", result.Error)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, ErrDriverNotFound
 		}
@@ -100,10 +104,10 @@ func (r *DriverPostgresRepository) UpdatePing(ctx context.Context, driverID int6
 	return r.db.WithContext(ctx).Model(&DriverModel{}).
 		Where("id = ?", driverID).
 		Updates(map[string]interface{}{
-			"current_lat":    lat,
-			"current_lng":    lng,
-			"last_ping_at":   pingTime,
-			"is_online":      true,
+			"current_lat":     lat,
+			"current_lng":     lng,
+			"last_ping_at":    pingTime,
+			"is_online":       true,
 			"last_updated_at": pingTime,
 		}).Error
 }
@@ -119,6 +123,7 @@ func (r *DriverPostgresRepository) GetOnlineDrivers(ctx context.Context) ([]*dom
 
 	result := r.db.WithContext(ctx).Where("is_online = ?", true).Find(&models)
 	if result.Error != nil {
+		logger.Error(ctx, "Failed to get online drivers", result.Error)
 		return nil, result.Error
 	}
 

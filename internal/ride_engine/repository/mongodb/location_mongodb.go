@@ -2,8 +2,8 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -45,7 +45,8 @@ func (r *LocationMongoRepository) UpdateDriverLocation(ctx context.Context, driv
 
 	_, err := r.collection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
-		return fmt.Errorf("failed to update driver location: %w", err)
+		logger.Error(ctx, err)
+		return err
 	}
 
 	return nil
@@ -66,7 +67,8 @@ func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, l
 
 	cursor, err := r.collection.Find(ctx, filter, options.Find().SetLimit(int64(limit)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to find nearest drivers: %w", err)
+		logger.Error(ctx, err)
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 
@@ -74,6 +76,7 @@ func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, l
 	for cursor.Next(ctx) {
 		var location repository.DriverLocation
 		if err := cursor.Decode(&location); err != nil {
+			logger.Error(ctx, err)
 			continue
 		}
 		driverIDs = append(driverIDs, location.DriverID)

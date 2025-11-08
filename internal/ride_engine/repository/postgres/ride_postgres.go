@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"gorm.io/gorm"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
@@ -64,6 +65,7 @@ func (r *RidePostgresRepository) Create(ctx context.Context, ride *domain.Ride) 
 
 	result := r.db.WithContext(ctx).Create(model)
 	if result.Error != nil {
+		logger.Error(ctx, "error creating ride model", result.Error)
 		return result.Error
 	}
 
@@ -76,6 +78,7 @@ func (r *RidePostgresRepository) GetByID(ctx context.Context, id int64) (*domain
 
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&model)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting ride model", result.Error)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, ErrRideNotFound
 		}
@@ -93,10 +96,12 @@ func (r *RidePostgresRepository) Update(ctx context.Context, ride *domain.Ride) 
 		Updates(model)
 
 	if result.Error != nil {
+		logger.Error(ctx, "error updating ride model", result.Error)
 		return result.Error
 	}
 
 	if result.RowsAffected == 0 {
+		logger.Error(ctx, "error updating ride model", result.Error)
 		return ErrRideNotFound
 	}
 
@@ -108,6 +113,7 @@ func (r *RidePostgresRepository) GetRequestedRides(ctx context.Context) ([]*doma
 
 	result := r.db.WithContext(ctx).Where("status = ?", "requested").Find(&models)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting ride models", result.Error)
 		return nil, result.Error
 	}
 
@@ -124,6 +130,7 @@ func (r *RidePostgresRepository) GetByCustomerID(ctx context.Context, customerID
 
 	result := r.db.WithContext(ctx).Where("customer_id = ?", customerID).Order("requested_at DESC").Find(&models)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting ride models", result.Error)
 		return nil, result.Error
 	}
 
@@ -140,6 +147,7 @@ func (r *RidePostgresRepository) GetByDriverID(ctx context.Context, driverID int
 
 	result := r.db.WithContext(ctx).Where("driver_id = ?", driverID).Order("requested_at DESC").Find(&models)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting ride models", result.Error)
 		return nil, result.Error
 	}
 

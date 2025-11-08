@@ -12,7 +12,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"vcs.technonext.com/carrybee/ride_engine/internal/api"
-	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/config"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/database"
 )
@@ -40,12 +39,6 @@ func startServer() {
 		logger.Fatal("Failed to connect to PostgresSQL : ", err)
 	}
 	defer postgresDB.Close()
-
-	logger.Info(context.Background(), "Running database migrations...")
-	if err := postgres.AutoMigrate(postgresDB.DB); err != nil {
-		logger.Fatal("Failed to migrate postgres schema : ", err)
-	}
-	logger.Info(context.Background(), "Migrations completed successfully")
 
 	// Initialize MongoDB
 	mongoDB, err := database.NewMongoDB(cfg.MongoDB)

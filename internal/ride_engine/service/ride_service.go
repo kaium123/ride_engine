@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
@@ -36,6 +37,7 @@ func (s *RideService) RequestRide(ctx context.Context, customerID int64, pickupL
 	}
 
 	if err := s.rideRepo.Create(ctx, ride); err != nil {
+		logger.Error(ctx, "Failed to create ride: %v", err)
 		return nil, err
 	}
 
@@ -46,6 +48,7 @@ func (s *RideService) RequestRide(ctx context.Context, customerID int64, pickupL
 func (s *RideService) GetNearbyRides(ctx context.Context, driverID int64, driverLat, driverLng, maxDistance float64) ([]*domain.Ride, error) {
 	rides, err := s.rideRepo.GetRequestedRides(ctx)
 	if err != nil {
+		logger.Error(ctx, "Failed to get requested rides: %v", err)
 		return nil, err
 	}
 
@@ -68,10 +71,12 @@ func (s *RideService) GetNearbyRides(ctx context.Context, driverID int64, driver
 func (s *RideService) AcceptRide(ctx context.Context, rideID, driverID int64) error {
 	ride, err := s.rideRepo.GetByID(ctx, rideID)
 	if err != nil {
+		logger.Error(ctx, "Failed to get ride: %v", err)
 		return err
 	}
 
 	if err := ride.Accept(driverID); err != nil {
+		logger.Error(ctx, "Failed to accept ride: %v", err)
 		return err
 	}
 
@@ -82,10 +87,12 @@ func (s *RideService) AcceptRide(ctx context.Context, rideID, driverID int64) er
 func (s *RideService) StartRide(ctx context.Context, rideID int64) error {
 	ride, err := s.rideRepo.GetByID(ctx, rideID)
 	if err != nil {
+		logger.Error(ctx, "Failed to get ride: %v", err)
 		return err
 	}
 
 	if err := ride.Start(); err != nil {
+		logger.Error(ctx, "Failed to start ride: %v", err)
 		return err
 	}
 
@@ -96,10 +103,12 @@ func (s *RideService) StartRide(ctx context.Context, rideID int64) error {
 func (s *RideService) CompleteRide(ctx context.Context, rideID int64) error {
 	ride, err := s.rideRepo.GetByID(ctx, rideID)
 	if err != nil {
+		logger.Error(ctx, "Failed to get ride: %v", err)
 		return err
 	}
 
 	if err := ride.Complete(); err != nil {
+		logger.Error(ctx, "Failed to complete ride: %v", err)
 		return err
 	}
 
@@ -110,10 +119,12 @@ func (s *RideService) CompleteRide(ctx context.Context, rideID int64) error {
 func (s *RideService) CancelRide(ctx context.Context, rideID int64) error {
 	ride, err := s.rideRepo.GetByID(ctx, rideID)
 	if err != nil {
+		logger.Error(ctx, "Failed to get ride: %v", err)
 		return err
 	}
 
 	if err := ride.Cancel(); err != nil {
+		logger.Error(ctx, "Failed to cancel ride: %v", err)
 		return err
 	}
 

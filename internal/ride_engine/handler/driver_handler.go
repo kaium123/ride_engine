@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"github.com/labstack/echo/v4"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/service"
@@ -53,13 +55,16 @@ type SetOnlineStatusRequest struct {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Router /drivers/register [post]
 func (h *DriverHandler) Register(c echo.Context) error {
+	ctx := c.Request().Context()
 	var req RegisterDriverRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	driver, err := h.service.Register(c.Request().Context(), req.Name, req.Phone, req.VehicleNo)
+	driver, err := h.service.Register(ctx, req.Name, req.Phone, req.VehicleNo)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
@@ -77,13 +82,16 @@ func (h *DriverHandler) Register(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Router /drivers/login/request-otp [post]
 func (h *DriverHandler) RequestOTP(c echo.Context) error {
+	ctx := c.Request().Context()
 	var req RequestOTPRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	err := h.service.RequestOTP(c.Request().Context(), req.Phone)
+	err := h.service.RequestOTP(ctx, req.Phone)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
@@ -102,13 +110,16 @@ func (h *DriverHandler) RequestOTP(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Router /drivers/login/verify-otp [post]
 func (h *DriverHandler) VerifyOTP(c echo.Context) error {
+	ctx := c.Request().Context()
 	var req VerifyOTPRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	driver, token, err := h.service.VerifyOTP(c.Request().Context(), req.Phone, req.OTP)
+	driver, token, err := h.service.VerifyOTP(ctx, req.Phone, req.OTP)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
 	}
 
@@ -132,27 +143,33 @@ func (h *DriverHandler) VerifyOTP(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /drivers/location [post]
 func (h *DriverHandler) UpdateLocation(c echo.Context) error {
+	ctx := c.Request().Context()
 	driverID, ok := middleware.GetUserIDFromEcho(c)
 	if !ok {
+		logger.Error(ctx, errors.New("missing user id"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
 	}
 	fmt.Println("Driver ID from context:", driverID)
 
 	role, ok := middleware.GetUserRoleFromEcho(c)
 	if !ok {
+		logger.Error(ctx, errors.New("missing user role"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
 	}
 	if role != "driver" {
+		logger.Error(ctx, errors.New("invalid role"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
 	}
 
 	var req UpdateLocationRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	err := h.service.UpdateLocation(c.Request().Context(), driverID, req.Latitude, req.Longitude)
+	err := h.service.UpdateLocation(ctx, driverID, req.Latitude, req.Longitude)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 	}
 
@@ -173,27 +190,33 @@ func (h *DriverHandler) UpdateLocation(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /drivers/status [post]
 func (h *DriverHandler) SetOnlineStatus(c echo.Context) error {
+	ctx := c.Request().Context()
 	driverID, ok := middleware.GetUserIDFromEcho(c)
 	if !ok {
+		logger.Error(ctx, errors.New("missing user id"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
 	}
 	fmt.Println("Driver ID from context:", driverID)
 
 	role, ok := middleware.GetUserRoleFromEcho(c)
 	if !ok {
+		logger.Error(ctx, errors.New("missing user role"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
 	}
 	if role != "driver" {
+		logger.Error(ctx, errors.New("invalid role"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
 	}
 
 	var req SetOnlineStatusRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	err := h.service.SetOnlineStatus(c.Request().Context(), driverID, req.IsOnline)
+	err := h.service.SetOnlineStatus(ctx, driverID, req.IsOnline)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 	}
 
@@ -220,18 +243,21 @@ func (h *DriverHandler) SetOnlineStatus(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /rides/nearby [get]
 func (h *DriverHandler) FindNearestDrivers(c echo.Context) error {
+	ctx := c.Request().Context()
 	latStr := c.QueryParam("lat")
 	lngStr := c.QueryParam("lng")
 	radiusStr := c.QueryParam("radius")
 	limitStr := c.QueryParam("limit")
 
 	if latStr == "" || lngStr == "" {
+		logger.Error(ctx, errors.New("missing latitude, lng"))
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "lat and lng are required"})
 	}
 
 	lat, err1 := strconv.ParseFloat(latStr, 64)
 	lng, err2 := strconv.ParseFloat(lngStr, 64)
 	if err1 != nil || err2 != nil {
+		logger.Error(ctx, errors.New("invalid latitude, lng"))
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid coordinates"})
 	}
 
@@ -249,8 +275,9 @@ func (h *DriverHandler) FindNearestDrivers(c echo.Context) error {
 		}
 	}
 
-	driverIDs, err := h.service.GetNearestDrivers(c.Request().Context(), lat, lng, radius, limit)
+	driverIDs, err := h.service.GetNearestDrivers(ctx, lat, lng, radius, limit)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 	}
 

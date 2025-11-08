@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"vcs.technonext.com/carrybee/ride_engine/pkg/database"
 )
@@ -51,6 +52,7 @@ func (r *OTPPostgresRepository) VerifyOTP(ctx context.Context, phone, otp string
 	model.VerifiedAt = &now
 
 	if err := r.db.WithContext(ctx).Save(&model).Error; err != nil {
+		logger.Error(ctx, err)
 		return false, err
 	}
 

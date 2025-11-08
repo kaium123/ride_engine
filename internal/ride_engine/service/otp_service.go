@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"github.com/redis/go-redis/v9"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
@@ -33,11 +34,11 @@ func (s *OTPService) SaveOTP(ctx context.Context, phone, otp, purpose string) er
 
 	key := fmt.Sprintf("otp:%s", phone)
 	if err := s.redis.Set(ctx, key, otp, 2*time.Minute).Err(); err != nil {
-		return fmt.Errorf("failed to save OTP to Redis: %w", err)
+		return err
 	}
 
 	if err := s.otpRepo.SaveOTP(ctx, phone, otp, purpose, expiresAt); err != nil {
-		fmt.Printf("Warning: failed to save OTP to database: %v\n", err)
+		logger.Error(ctx, "save otp error", err)
 	}
 
 	return nil
@@ -62,7 +63,7 @@ func (s *OTPService) VerifyOTP(ctx context.Context, phone, otp string) (bool, er
 		s.redis.Del(ctx, key)
 
 		if _, err := s.otpRepo.VerifyOTP(ctx, phone, otp); err != nil {
-			fmt.Printf("Warning: failed to mark OTP as verified in database: %v\n", err)
+			logger.Error(ctx, "verify otp error", err)
 		}
 
 		return true, nil

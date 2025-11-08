@@ -3,10 +3,10 @@ package postgres
 import (
 	"context"
 	"errors"
-
 	"gorm.io/gorm"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/database"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 )
 
 var (
@@ -48,6 +48,7 @@ func (r *CustomerPostgresRepository) Create(ctx context.Context, customer *domai
 
 	result := r.db.WithContext(ctx).Create(model)
 	if result.Error != nil {
+		logger.Error(ctx, "error creating customer", result.Error)
 		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 			return ErrCustomerAlreadyExists
 		}
@@ -63,6 +64,7 @@ func (r *CustomerPostgresRepository) GetByID(ctx context.Context, id int64) (*do
 
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&model)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting customer", result.Error)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, ErrCustomerNotFound
 		}
@@ -77,6 +79,7 @@ func (r *CustomerPostgresRepository) GetByEmail(ctx context.Context, email strin
 
 	result := r.db.WithContext(ctx).Where("email = ?", email).First(&model)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting customer", result.Error)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, "", ErrCustomerNotFound
 		}
@@ -91,6 +94,7 @@ func (r *CustomerPostgresRepository) GetByPhone(ctx context.Context, phone strin
 
 	result := r.db.WithContext(ctx).Where("phone = ?", phone).First(&model)
 	if result.Error != nil {
+		logger.Error(ctx, "error getting customer", result.Error)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, ErrCustomerNotFound
 		}
@@ -110,10 +114,12 @@ func (r *CustomerPostgresRepository) Update(ctx context.Context, customer *domai
 		})
 
 	if result.Error != nil {
+		logger.Error(ctx, "error updating customer", result.Error)
 		return result.Error
 	}
 
 	if result.RowsAffected == 0 {
+		logger.Error(ctx, "error updating customer", ErrCustomerNotFound)
 		return ErrCustomerNotFound
 	}
 
@@ -124,10 +130,12 @@ func (r *CustomerPostgresRepository) Delete(ctx context.Context, id int64) error
 	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&CustomerModel{})
 
 	if result.Error != nil {
+		logger.Error(ctx, "error deleting customer", result.Error)
 		return result.Error
 	}
 
 	if result.RowsAffected == 0 {
+		logger.Error(ctx, "error deleting customer", ErrCustomerNotFound)
 		return ErrCustomerNotFound
 	}
 

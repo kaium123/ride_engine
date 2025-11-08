@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"github.com/labstack/echo/v4"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/service"
@@ -43,13 +44,16 @@ type AuthResponse struct {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Router /customers/register [post]
 func (h *CustomerHandler) Register(c echo.Context) error {
+	ctx := c.Request().Context()
 	var req RegisterCustomerRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	customer, token, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Phone, req.Password)
+	customer, token, err := h.service.Register(ctx, req.Name, req.Email, req.Phone, req.Password)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
@@ -71,13 +75,16 @@ func (h *CustomerHandler) Register(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Router /customers/login [post]
 func (h *CustomerHandler) Login(c echo.Context) error {
+	ctx := c.Request().Context()
 	var req LoginCustomerRequest
 	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 	}
 
-	customer, token, err := h.service.Login(c.Request().Context(), req.Email, req.Password)
+	customer, token, err := h.service.Login(ctx, req.Email, req.Password)
 	if err != nil {
+		logger.Error(ctx, err)
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
 	}
 

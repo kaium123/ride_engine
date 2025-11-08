@@ -9,6 +9,7 @@ import (
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/config"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/utils"
 )
 
@@ -43,6 +44,7 @@ func NewDriverService(
 func (s *DriverService) Register(ctx context.Context, name, phone, vehicleNo string) (*domain.Driver, error) {
 	existingDriver, err := s.driverRepo.GetByPhone(ctx, phone)
 	if err == nil && existingDriver != nil {
+		logger.Error(ctx, fmt.Sprintf("driver with phone %s already exists", phone))
 		return nil, errors.New("driver with this phone already exists")
 	}
 
@@ -55,10 +57,12 @@ func (s *DriverService) Register(ctx context.Context, name, phone, vehicleNo str
 	}
 
 	if err := domain.ValidateDriver(driver); err != nil {
+		logger.Error(ctx, fmt.Sprintf("invalid driver: %v", err))
 		return nil, err
 	}
 
 	if err := s.driverRepo.Create(ctx, driver); err != nil {
+		logger.Error(ctx, fmt.Sprintf("error creating driver: %v", err))
 		return nil, err
 	}
 
@@ -69,6 +73,7 @@ func (s *DriverService) Register(ctx context.Context, name, phone, vehicleNo str
 func (s *DriverService) RequestOTP(ctx context.Context, phone string) error {
 	_, err := s.driverRepo.GetByPhone(ctx, phone)
 	if err != nil {
+		logger.Error(ctx, fmt.Sprintf("driver with phone %s not found", phone))
 		return errors.New("driver not found")
 	}
 
@@ -78,6 +83,7 @@ func (s *DriverService) RequestOTP(ctx context.Context, phone string) error {
 	}
 
 	if err := s.otpService.SaveOTP(ctx, phone, otp, "driver_login"); err != nil {
+		logger.Error(ctx, fmt.Sprintf("error saving otp: %v", err))
 		return err
 	}
 
@@ -90,26 +96,31 @@ func (s *DriverService) RequestOTP(ctx context.Context, phone string) error {
 func (s *DriverService) VerifyOTP(ctx context.Context, phone, otp string) (*domain.Driver, string, error) {
 	valid, err := s.otpService.VerifyOTP(ctx, phone, otp)
 	if err != nil {
+		logger.Error(ctx, fmt.Sprintf("error verifying otp: %v", err))
 		return nil, "", err
 	}
 
 	if !valid {
+		logger.Error(ctx, fmt.Sprintf("invalid otp: %s", otp))
 		return nil, "", errors.New("invalid or expired OTP")
 	}
 
 	driver, err := s.driverRepo.GetByPhone(ctx, phone)
 	if err != nil {
+		logger.Error(ctx, fmt.Sprintf("driver with phone %s not found", phone))
 		return nil, "", err
 	}
 
 	token, err := utils.GenerateJWT(driver.ID, "driver", s.jwtSecret, s.jwtExpiry)
 	if err != nil {
+		logger.Error(ctx, fmt.Sprintf("error generating token: %v", err))
 		return nil, "", err
 	}
 
 	key := fmt.Sprintf("jwt:user:%d", driver.ID)
 	err = s.redis.Set(ctx, key, token, time.Duration(s.jwtExpiry)*time.Second).Err()
 	if err != nil {
+		logger.Error(ctx, fmt.Sprintf("error saving token: %v", err))
 		return nil, "", fmt.Errorf("failed to store JWT in Redis: %v", err)
 	}
 
@@ -121,11 +132,12 @@ func (s *DriverService) UpdateLocation(ctx context.Context, driverID int64, lat,
 	now := time.Now()
 
 	if err := s.driverRepo.UpdatePing(ctx, driverID, lat, lng, now); err != nil {
-		fmt.Println()
+		logger.Error(ctx, fmt.Sprintf("error updating driver: %v", err))
 		return err
 	}
 
 	if err := s.locationService.UpdateDriverLocation(ctx, driverID, lat, lng); err != nil {
+		logger.Error(ctx, fmt.Sprintf("error updating driver: %v", err))
 		return err
 	}
 
@@ -155,7 +167,7 @@ func (s *DriverService) MonitorDriverActivity(ctx context.Context) {
 		case <-ticker.C:
 			cutoff := time.Now().Add(-60 * time.Second)
 			if err := s.driverRepo.MarkOfflineIfInactive(ctx, cutoff); err != nil {
-				fmt.Printf("Error marking drivers offline: %v\n", err)
+				logger.Error(ctx, fmt.Sprintf("error updating driver: %v", err))
 			}
 		}
 	}

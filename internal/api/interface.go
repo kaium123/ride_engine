@@ -1,4 +1,3 @@
-// Package api provides the API server for the application.
 package api
 
 import "context"

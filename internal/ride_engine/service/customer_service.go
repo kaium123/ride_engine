@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository"
@@ -32,11 +33,13 @@ func NewCustomerService(repo repository.CustomerRepository, jwtSecret string, jw
 func (s *CustomerService) Register(ctx context.Context, name, email, phone, password string) (*domain.Customer, string, error) {
 	existingCustomer, _, err := s.repo.GetByEmail(ctx, email)
 	if err == nil && existingCustomer != nil {
+		logger.Error(ctx, "Customer with email already exists")
 		return nil, "", errors.New("customer with this email already exists")
 	}
 
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
+		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
@@ -48,22 +51,26 @@ func (s *CustomerService) Register(ctx context.Context, name, email, phone, pass
 	}
 
 	if err := domain.ValidateCustomer(customer); err != nil {
+		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
 	if err := s.repo.Create(ctx, customer, hashedPassword); err != nil {
+		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
 	token, err := utils.GenerateJWT(customer.ID, "customer", s.jwtSecret, s.jwtExpiry)
 	if err != nil {
+		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
 	key := fmt.Sprintf("jwt:user:%d", customer.ID)
 	err = s.redis.Set(ctx, key, token, time.Duration(s.jwtExpiry)*time.Second).Err()
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to store JWT in Redis: %v", err)
+		logger.Error(ctx, err)
+		return nil, "", err
 	}
 
 	return customer, token, nil
@@ -73,15 +80,18 @@ func (s *CustomerService) Register(ctx context.Context, name, email, phone, pass
 func (s *CustomerService) Login(ctx context.Context, email, password string) (*domain.Customer, string, error) {
 	customer, hashedPassword, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
+		logger.Error(ctx, err)
 		return nil, "", errors.New("invalid email or password")
 	}
 
 	if !utils.CheckPassword(password, hashedPassword) {
+		logger.Error(ctx, "invalid password")
 		return nil, "", errors.New("invalid email or password")
 	}
 
 	token, err := utils.GenerateJWT(customer.ID, "customer", s.jwtSecret, s.jwtExpiry)
 	if err != nil {
+		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
@@ -89,7 +99,8 @@ func (s *CustomerService) Login(ctx context.Context, email, password string) (*d
 	fmt.Println(key)
 	err = s.redis.Set(ctx, key, token, time.Duration(s.jwtExpiry)*time.Second).Err()
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to store JWT in Redis: %v", err)
+		logger.Error(ctx, err)
+		return nil, "", err
 	}
 
 	return customer, token, nil
