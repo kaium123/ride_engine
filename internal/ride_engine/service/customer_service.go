@@ -71,13 +71,15 @@ func (s *CustomerService) Register(ctx context.Context, name, email, phone, pass
 		return nil, "", err
 	}
 
-	key := fmt.Sprintf("jwt:user:%d", customer.ID)
-	err = s.redis.Set(ctx, key, token, time.Duration(s.jwtExpiry)*time.Second).Err()
+	key := fmt.Sprintf("jwt:customer:%d", customer.ID)
+	expiration := time.Duration(s.jwtExpiry) * time.Hour
+	err = s.redis.Set(ctx, key, token, expiration).Err()
 	if err != nil {
 		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
+	fmt.Printf("✅ [REGISTER] Stored token for customer %d in Redis (expiry: %d hours). Token: %s...\n", customer.ID, s.jwtExpiry, token[:30])
 	return customer, token, nil
 }
 
@@ -105,13 +107,15 @@ func (s *CustomerService) Login(ctx context.Context, email, password string) (*d
 		return nil, "", err
 	}
 
-	key := fmt.Sprintf("jwt:user:%d", customer.ID)
-	err = s.redis.Set(ctx, key, token, time.Duration(s.jwtExpiry)*time.Second).Err()
+	key := fmt.Sprintf("jwt:customer:%d", customer.ID)
+	expiration := time.Duration(s.jwtExpiry) * time.Hour
+	err = s.redis.Set(ctx, key, token, expiration).Err()
 	if err != nil {
 		logger.Error(ctx, err)
 		return nil, "", err
 	}
 
+	fmt.Printf("✅ [LOGIN] Stored token for customer %d in Redis (expiry: %d hours). Token: %s...\n", customer.ID, s.jwtExpiry, token[:30])
 	return customer, token, nil
 }
 

@@ -26,11 +26,11 @@ type GeoJSONPoint struct {
 // RideDocument represents a ride in MongoDB
 type RideDocument struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty"`
-	RideID          int64              `bson:"ride_id"` // Sequence ID for API compatibility
+	RideID          int64              `bson:"ride_id"`
 	CustomerID      int64              `bson:"customer_id"`
 	DriverID        *int64             `bson:"driver_id,omitempty"`
-	PickupLocation  GeoJSONPoint       `bson:"pickup_location"`  // GeoJSON for geospatial queries
-	DropoffLocation GeoJSONPoint       `bson:"dropoff_location"` // GeoJSON for geospatial queries
+	PickupLocation  GeoJSONPoint       `bson:"pickup_location"`
+	DropoffLocation GeoJSONPoint       `bson:"dropoff_location"`
 	PickupLat       float64            `bson:"pickup_lat"`
 	PickupLng       float64            `bson:"pickup_lng"`
 	DropoffLat      float64            `bson:"dropoff_lat"`
@@ -55,43 +55,36 @@ type RideMongoRepository struct {
 func NewRideMongoRepository(db *mongo.Database) *RideMongoRepository {
 	collection := db.Collection("rides")
 
-	// Create geospatial index on pickup_location for finding nearby rides
 	pickupIndexModel := mongo.IndexModel{
-		Keys: bson.D{{Key: "pickup_location", Value: "2dsphere"}},
+		Keys: bson.D{{Key: "pickup_location", Value: "2dsphere"}}, // Create geospatial index on pickup_location for finding nearby rides
 	}
 
-	// Create geospatial index on dropoff_location
 	dropoffIndexModel := mongo.IndexModel{
-		Keys: bson.D{{Key: "dropoff_location", Value: "2dsphere"}},
+		Keys: bson.D{{Key: "dropoff_location", Value: "2dsphere"}}, // Create geospatial index on dropoff_location
 	}
 
-	// Create index on status for efficient filtering
 	statusIndexModel := mongo.IndexModel{
-		Keys: bson.D{{Key: "status", Value: 1}},
+		Keys: bson.D{{Key: "status", Value: 1}}, // Create index on status for efficient filtering
 	}
 
-	// Create index on customer_id
 	customerIndexModel := mongo.IndexModel{
-		Keys: bson.D{{Key: "customer_id", Value: 1}},
+		Keys: bson.D{{Key: "customer_id", Value: 1}}, // Create index on customer_id
 	}
 
-	// Create index on driver_id
 	driverIndexModel := mongo.IndexModel{
-		Keys: bson.D{{Key: "driver_id", Value: 1}},
+		Keys: bson.D{{Key: "driver_id", Value: 1}}, // Create index on driver_id
 	}
 
-	// Create compound index on status and requested_at for efficient polling
 	compoundIndexModel := mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "status", Value: 1},
-			{Key: "requested_at", Value: -1},
+			{Key: "requested_at", Value: -1}, // Create compound index on status and requested_at for efficient polling
 		},
 	}
 
-	// Create unique index on ride_id for auto-increment simulation
 	rideIDIndexModel := mongo.IndexModel{
 		Keys:    bson.D{{Key: "ride_id", Value: 1}},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true), // Create unique index on ride_id for auto-increment simulation
 	}
 
 	// Create all indexes
@@ -140,7 +133,7 @@ func toRideDocument(ride *domain.Ride) *RideDocument {
 		DriverID:   ride.DriverID,
 		PickupLocation: GeoJSONPoint{
 			Type:        "Point",
-			Coordinates: []float64{ride.PickupLng, ride.PickupLat}, // MongoDB uses [lng, lat]
+			Coordinates: []float64{ride.PickupLng, ride.PickupLat},
 		},
 		DropoffLocation: GeoJSONPoint{
 			Type:        "Point",
@@ -189,7 +182,6 @@ func toRideDomain(doc *RideDocument) *domain.Ride {
 
 // Create creates a new ride in MongoDB
 func (r *RideMongoRepository) Create(ctx context.Context, ride *domain.Ride) error {
-	// Generate next ride_id
 	rideID, err := r.getNextRideID(ctx)
 	if err != nil {
 		logger.Error(ctx, "Failed to generate ride ID", err)
@@ -286,28 +278,27 @@ func (r *RideMongoRepository) GetRequestedRides(ctx context.Context) ([]*domain.
 // Filters: status in ["requested", "pending"], updated within last 5 minutes, within radius
 // Params: lat, lng (driver location), maxDistanceMeters (search radius), limit (max results)
 func (r *RideMongoRepository) GetNearbyRequestedRides(ctx context.Context, lat, lng, maxDistanceMeters float64, limit int) ([]*domain.Ride, error) {
-	// Calculate cutoff time (5 minutes ago)
-	cutoffTime := time.Now().Add(-5 * time.Minute)
+
+	cutoffTime := time.Now().Add(-5 * time.Minute) // Calculate cutoff time (5 minutes ago)
 
 	filter := bson.M{
 		"status": bson.M{
 			"$in": []string{"requested", "pending"}, // Support both requested and pending status
 		},
 		"updated_at": bson.M{
-			"$gte": cutoffTime, // Only rides updated within last 5 minutes
+			"$gte": cutoffTime,
 		},
 		"pickup_location": bson.M{
 			"$nearSphere": bson.M{
 				"$geometry": bson.M{
 					"type":        "Point",
-					"coordinates": []float64{lng, lat}, // MongoDB uses [lng, lat]
+					"coordinates": []float64{lng, lat},
 				},
 				"$maxDistance": maxDistanceMeters, // in meters
 			},
 		},
 	}
 
-	// Set limit from parameter (capped at handler level: 1-100)
 	opts := options.Find().SetLimit(int64(limit))
 
 	cursor, err := r.collection.Find(ctx, filter, opts)

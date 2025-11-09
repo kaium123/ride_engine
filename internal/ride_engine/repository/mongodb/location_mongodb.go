@@ -21,9 +21,8 @@ type LocationMongoRepository struct {
 func NewLocationMongoRepository(db *mongo.Database) repository.LocationRepository {
 	collection := db.Collection("driver_locations")
 
-	// Create 2dsphere index on location field for geospatial queries
 	indexModel := mongo.IndexModel{
-		Keys: bson.D{{Key: "location", Value: "2dsphere"}},
+		Keys: bson.D{{Key: "location", Value: "2dsphere"}}, // Create 2dsphere index on location field for geospatial queries
 	}
 	collection.Indexes().CreateOne(context.Background(), indexModel)
 
@@ -54,9 +53,7 @@ func (r *LocationMongoRepository) UpdateDriverLocation(ctx context.Context, driv
 }
 
 func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, lng float64, maxDistance float64, limit int) ([]int64, error) {
-	// Calculate cutoff time (2 minutes ago)
-	// Only consider drivers whose location was updated within the last 2 minutes
-	cutoffTime := time.Now().Add(-2 * time.Minute)
+	cutoffTime := time.Now().Add(-2 * time.Minute) // Only consider drivers whose location was updated within the last 2 minutes
 
 	filter := bson.M{
 		"location": bson.M{
@@ -68,9 +65,9 @@ func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, l
 				"$maxDistance": maxDistance, // in meters
 			},
 		},
-		// Filter: only include drivers who updated their location within last 2 minutes
+
 		"updated_at": bson.M{
-			"$gte": cutoffTime,
+			"$gte": cutoffTime, // Filter: only include drivers who updated their location within last 2 minutes
 		},
 	}
 

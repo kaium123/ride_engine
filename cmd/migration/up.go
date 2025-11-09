@@ -27,6 +27,10 @@ func init() {
 }
 
 func up(cmd *cobra.Command, args []string) {
+	ExecuteMigration()
+}
+
+func ExecuteMigration() {
 	ctx := context.Background()
 	logger.Info(ctx, "Creating tables and indices")
 	migrationFiles := migrations.GetMigrations()

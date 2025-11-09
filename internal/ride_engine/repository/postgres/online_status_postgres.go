@@ -35,12 +35,10 @@ func NewOnlineStatusPostgresRepository(db *gorm.DB) repository.OnlineStatusRepos
 func (r *OnlineStatusPostgresRepository) UpsertOnlineDriver(ctx context.Context, driverID int64, lat, lng float64) error {
 	now := time.Now()
 
-	// Check if driver already exists in online_drivers
 	var existing OnlineDriverModel
 	err := r.db.WithContext(ctx).Where("driver_id = ?", driverID).First(&existing).Error
 
 	if err == gorm.ErrRecordNotFound {
-		// New online driver - insert
 		newDriver := OnlineDriverModel{
 			DriverID:     driverID,
 			IsOnline:     true,
@@ -55,7 +53,6 @@ func (r *OnlineStatusPostgresRepository) UpsertOnlineDriver(ctx context.Context,
 		return err
 	}
 
-	// Existing driver - update ping time and location
 	updates := map[string]interface{}{
 		"is_online":    true,
 		"last_ping_at": now,
@@ -77,8 +74,7 @@ func (r *OnlineStatusPostgresRepository) SetDriverOffline(ctx context.Context, d
 		Delete(&OnlineDriverModel{}).Error
 }
 
-// IsDriverOnline checks if driver is currently online
-// A driver is considered online if they exist in online_drivers table AND last ping was within 2 minutes
+// IsDriverOnline A driver is considered online if they exist in online_drivers table AND last ping was within 2 minutes
 func (r *OnlineStatusPostgresRepository) IsDriverOnline(ctx context.Context, driverID int64) (bool, error) {
 	// Calculate cutoff time (2 minutes ago)
 	cutoffTime := time.Now().Add(-2 * time.Minute)
@@ -97,10 +93,9 @@ func (r *OnlineStatusPostgresRepository) IsDriverOnline(ctx context.Context, dri
 }
 
 // GetOnlineDrivers returns list of all online driver IDs
-// A driver is considered online if last ping was within 2 minutes
 func (r *OnlineStatusPostgresRepository) GetOnlineDrivers(ctx context.Context) ([]int64, error) {
-	// Calculate cutoff time (2 minutes ago)
-	cutoffTime := time.Now().Add(-2 * time.Minute)
+
+	cutoffTime := time.Now().Add(-2 * time.Minute) // Calculate cutoff time (2 minutes ago)
 
 	var driverIDs []int64
 	err := r.db.WithContext(ctx).
@@ -123,14 +118,12 @@ func (r *OnlineStatusPostgresRepository) RemoveInactiveDrivers(ctx context.Conte
 }
 
 // GetOnlineDriversByIDs filters a list of driver IDs to only those currently online
-// A driver is considered online if last ping was within 2 minutes
 func (r *OnlineStatusPostgresRepository) GetOnlineDriversByIDs(ctx context.Context, driverIDs []int64) ([]int64, error) {
 	if len(driverIDs) == 0 {
 		return []int64{}, nil
 	}
 
-	// Calculate cutoff time (2 minutes ago)
-	cutoffTime := time.Now().Add(-2 * time.Minute)
+	cutoffTime := time.Now().Add(-2 * time.Minute) // Calculate cutoff time (2 minutes ago)
 
 	var onlineDriverIDs []int64
 	err := r.db.WithContext(ctx).

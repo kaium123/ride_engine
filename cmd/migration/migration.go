@@ -13,7 +13,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/httpfs"
 	"github.com/spf13/cobra"
-	//"vcs.technonext.com/carrybee/mohajon/pkg/log"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/migrations"
 )
 

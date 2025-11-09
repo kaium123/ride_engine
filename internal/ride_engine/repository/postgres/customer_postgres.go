@@ -55,7 +55,7 @@ func (r *CustomerPostgresRepository) Create(ctx context.Context, customer *domai
 		return result.Error
 	}
 
-	customer.ID = model.ID // Set the auto-generated ID
+	customer.ID = model.ID
 	return nil
 }
 

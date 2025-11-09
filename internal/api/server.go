@@ -38,7 +38,7 @@ func (s *ApiServer) SetupRoutes() *echo.Echo {
 	// Initialize repositories
 	customerRepo := postgres.NewCustomerPostgresRepository(s.postgres)
 	driverRepo := postgres.NewDriverPostgresRepository(s.postgres)
-	rideRepoMongo := mongodb.NewRideMongoRepository(s.mongo.Database) // MongoDB for rides with geospatial queries
+	rideRepoMongo := mongodb.NewRideMongoRepository(s.mongo.Database)
 	otpRepo := postgres.NewOTPPostgresRepository(s.postgres)
 	onlineStatusRepo := postgres.NewOnlineStatusPostgresRepository(s.postgres.DB)
 	locationRepo := mongodb.NewLocationMongoRepository(s.mongo.Database)

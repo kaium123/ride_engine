@@ -23,22 +23,22 @@ func NewOTPService(redisClient *redis.Client, otpRepo *postgres.OTPPostgresRepos
 	}
 }
 
-// GenerateOTP generates a 6-digit OTP
 func (s *OTPService) GenerateOTP() string {
 	return fmt.Sprintf("%06d", rand.Intn(1000000))
 }
 
-// SaveOTP saves OTP in both Redis (for fast validation) and PostgreSQL (for audit)
+// SaveOTP saves OTP in both Redis (for fast validation) and PostgreSQL (for visualization)
 func (s *OTPService) SaveOTP(ctx context.Context, phone, otp, purpose string) error {
 	expiresAt := time.Now().Add(2 * time.Minute)
 
 	key := fmt.Sprintf("otp:%s", phone)
 	if err := s.redis.Set(ctx, key, otp, 2*time.Minute).Err(); err != nil {
+		logger.Error(ctx, fmt.Sprintf("Failed to save OTP to Redis: %v", err))
 		return err
 	}
 
 	if err := s.otpRepo.SaveOTP(ctx, phone, otp, purpose, expiresAt); err != nil {
-		logger.Error(ctx, "save otp error", err)
+		logger.Error(ctx, fmt.Sprintf("save otp error: %v", err))
 	}
 
 	return nil
@@ -63,7 +63,7 @@ func (s *OTPService) VerifyOTP(ctx context.Context, phone, otp string) (bool, er
 		s.redis.Del(ctx, key)
 
 		if _, err := s.otpRepo.VerifyOTP(ctx, phone, otp); err != nil {
-			logger.Error(ctx, "verify otp error", err)
+			logger.Error(ctx, fmt.Sprintf("verify otp error: %v", err))
 		}
 
 		return true, nil

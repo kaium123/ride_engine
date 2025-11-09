@@ -2,8 +2,6 @@ package postgres
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // CustomerModel represents the customers table
@@ -77,14 +75,4 @@ type OTPModel struct {
 
 func (OTPModel) TableName() string {
 	return "otp_records"
-}
-
-// AutoMigrate runs database migrations
-func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-	//&CustomerModel{},
-	//&DriverModel{},
-	//&RideModel{},
-	//&OTPModel{},
-	)
 }

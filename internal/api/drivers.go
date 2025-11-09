@@ -16,6 +16,5 @@ func (s *ApiServer) registerDriverRoutes(e *echo.Group, authMiddleware *appMiddl
 
 	// Protected routes
 	drivers.POST("/location", driverHandler.UpdateLocation, authMiddleware.AuthEcho)
-	//drivers.POST("/status", driverHandler.SetOnlineStatus)
 	drivers.POST("/nearby", driverHandler.FindNearestDrivers, authMiddleware.AuthEcho)
 }

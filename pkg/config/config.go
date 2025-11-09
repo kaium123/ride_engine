@@ -2,9 +2,12 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -59,6 +62,11 @@ func GetConfig() Config {
 }
 
 func Load() *Config {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, using system environment variables")
+	}
+
 	cnf = Config{
 		Environment: getEnv("ENVIRONMENT", "development"),
 		Server: ServerConfig{
@@ -95,8 +103,10 @@ func Load() *Config {
 	}
 
 	if cnf.Environment == "development" {
-		cnf.JWT.Expiration = 10000 // 10000 second expiry
+		cnf.JWT.Expiration = 720 // 720 hours = 30 days expiry for development
 	}
+
+	log.Printf("JWT Expiration configured: %d hours", cnf.JWT.Expiration)
 	return &cnf
 }
 
@@ -129,6 +139,7 @@ func getRedisAddr() string {
 
 	host := getEnv("REDIS_HOST", "localhost")
 	port := getEnv("REDIS_PORT", "6379")
+	fmt.Println("redis addr:", host, "port:", port)
 	return fmt.Sprintf("%s:%s", host, port)
 }
 

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
@@ -155,7 +154,6 @@ func (h *DriverHandler) UpdateLocation(c echo.Context) error {
 		logger.Error(ctx, errors.New("missing user id"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
 	}
-	fmt.Println("Driver ID from context:", driverID)
 
 	role, ok := middleware.GetUserRoleFromEcho(c)
 	if !ok {
@@ -237,7 +235,7 @@ func (h *DriverHandler) UpdateLocation(c echo.Context) error {
 // FindNearestDrivers finds nearest available drivers
 // @Summary Find nearest drivers
 // @Description Find nearest available drivers within a specified radius
-// @Tags Rides
+// @Tags Drivers
 // @Accept json
 // @Produce json
 // @Security BearerAuth
@@ -245,7 +243,7 @@ func (h *DriverHandler) UpdateLocation(c echo.Context) error {
 // @Success 200 {object} map[string]interface{} "List of nearest drivers"
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /rides/nearby [post]
+// @Router /drivers/nearby [post]
 func (h *DriverHandler) FindNearestDrivers(c echo.Context) error {
 	ctx := c.Request().Context()
 	var req FindNearestDriversRequest

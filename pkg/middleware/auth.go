@@ -60,7 +60,7 @@ func (m *AuthMiddleware) Auth(next http.Handler) http.Handler {
 			return
 		}
 
-		key := fmt.Sprintf("jwt:user:%d", claims.UserID)
+		key := fmt.Sprintf("jwt:%s:%d", claims.Role, claims.UserID)
 		storedToken, err := m.redis.Get(r.Context(), key).Result()
 		if err == redis.Nil {
 			logger.Error(cctx, "Token not found")
@@ -111,18 +111,18 @@ func (m *AuthMiddleware) AuthEcho(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": fmt.Sprintf("invalid token: %v", err)})
 		}
 
-		key := fmt.Sprintf("jwt:user:%d", claims.UserID)
+		key := fmt.Sprintf("jwt:%s:%d", claims.Role, claims.UserID)
 		storedToken, err := m.redis.Get(c.Request().Context(), key).Result()
 		if err == redis.Nil {
-			logger.Error(cctx, "Token not found")
+			logger.Error(cctx, fmt.Sprintf("Token not found in Redis for key: %s", key))
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "token expired or logged out"})
 		}
 		if err != nil {
-			logger.Error(cctx, "Invalid token")
+			logger.Error(cctx, fmt.Sprintf("Redis error for key %s: %v", key, err))
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to verify token"})
 		}
 		if storedToken != token {
-			logger.Error(cctx, "Invalid token")
+			logger.Error(cctx, fmt.Sprintf("Token mismatch for user %d. Stored: %s..., Received: %s...", claims.UserID, storedToken[:20], token[:20]))
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "token mismatch"})
 		}
 

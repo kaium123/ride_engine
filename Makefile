@@ -6,6 +6,13 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
+docker-up-database: ## Start Docker containers
+	@echo "Starting Docker containers..."
+	@docker-compose up postgres mongodb redis -d
+	@echo "Waiting for databases to be ready..."
+	@sleep 5
+	@echo "Docker containers are up!"
+
 build: ## Build the application
 	@echo "Building application..."
 	@go build -o bin/ride_engine main.go
@@ -17,7 +24,7 @@ run: ## Run the application
 
 docker-up: ## Start Docker containers
 	@echo "Starting Docker containers..."
-	@docker-compose up -d
+	@docker-compose up -d --build
 	@echo "Waiting for databases to be ready..."
 	@sleep 5
 	@echo "Docker containers are up!"
@@ -55,10 +62,6 @@ deps: ## Download dependencies
 	@go mod download
 	@go mod tidy
 	@echo "Dependencies downloaded!"
-
-migrate-up: ## Run database migrations (placeholder)
-	@echo "Running migrations..."
-	@echo "Note: Migrations run automatically via Docker init scripts"
 
 db-reset: docker-down docker-clean docker-up ## Reset databases
 	@echo "Databases reset complete!"

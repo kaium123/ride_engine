@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"vcs.technonext.com/carrybee/ride_engine/cmd/migration"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
 	"github.com/spf13/cobra"
@@ -53,6 +54,9 @@ func startServer() {
 		logger.Fatal("Failed to connect to Redis : ", err)
 	}
 	defer redisDB.Close()
+
+	// execute migration
+	migration.ExecuteMigration()
 
 	// Initialize API server and setup routes
 	apiServer := api.NewServer(cfg, postgresDB, mongoDB, redisDB)

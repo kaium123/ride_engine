@@ -69,7 +69,7 @@ func (r *RidePostgresRepository) Create(ctx context.Context, ride *domain.Ride) 
 		return result.Error
 	}
 
-	ride.ID = model.ID // Set the auto-generated ID
+	ride.ID = model.ID
 	return nil
 }
 

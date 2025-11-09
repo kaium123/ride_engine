@@ -412,6 +412,39 @@ paths:
       summary: Verify OTP and login driver
       tags:
       - Drivers
+  /drivers/nearby:
+    post:
+      consumes:
+      - application/json
+      description: Find nearest available drivers within a specified radius
+      parameters:
+      - description: Search parameters for nearest drivers
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.FindNearestDriversRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of nearest drivers
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Find nearest drivers
+      tags:
+      - Drivers
   /drivers/register:
     post:
       consumes:

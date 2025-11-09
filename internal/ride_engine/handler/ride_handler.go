@@ -515,6 +515,7 @@ func (h *RideHandler) GetRideStatus(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
 	}
 
+	fmt.Println("Ride ID from context:", customerID, "role:", role)
 	if role != "customer" {
 		logger.Error(ctx, errors.New("invalid role"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "only customers can check ride status"})

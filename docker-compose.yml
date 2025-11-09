@@ -27,7 +27,7 @@ services:
       - MONGO_INITDB_DATABASE=ride_engine
     volumes:
       - "./storage/mongodb:/data/db"
-      - "./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init.js:ro"
+#      - "./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init.js:ro"
     container_name: ride_engine-mongo
     networks:
       - ride_engine_network
