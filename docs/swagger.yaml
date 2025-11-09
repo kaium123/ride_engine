@@ -1,9 +1,85 @@
 basePath: /api/v1
 definitions:
+  domain.Ride:
+    properties:
+      accepted_at:
+        type: string
+      cancelled_at:
+        type: string
+      completed_at:
+        type: string
+      customer_id:
+        type: integer
+      driver_id:
+        type: integer
+      dropoff_lat:
+        type: number
+      dropoff_lng:
+        type: number
+      fare:
+        type: number
+      id:
+        type: integer
+      pickup_lat:
+        type: number
+      pickup_lng:
+        type: number
+      requested_at:
+        type: string
+      started_at:
+        type: string
+      status:
+        $ref: '#/definitions/domain.RideStatus'
+    type: object
+  domain.RideStatus:
+    enum:
+    - requested
+    - pending
+    - accepted
+    - started
+    - completed
+    - cancelled
+    type: string
+    x-enum-comments:
+      RideStatusPending: Alternative status for requested rides
+    x-enum-descriptions:
+    - ""
+    - Alternative status for requested rides
+    - ""
+    - ""
+    - ""
+    - ""
+    x-enum-varnames:
+    - RideStatusRequested
+    - RideStatusPending
+    - RideStatusAccepted
+    - RideStatusStarted
+    - RideStatusCompleted
+    - RideStatusCancelled
   handler.AuthResponse:
     properties:
       customer: {}
       token:
+        type: string
+    type: object
+  handler.DriverInfo:
+    properties:
+      current_lat:
+        description: Driver's current location
+        type: number
+      current_lng:
+        description: Driver's current location
+        type: number
+      driver_id:
+        type: integer
+      last_ping_at:
+        description: Last location update time
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      vehicle_no:
         type: string
     type: object
   handler.ErrorResponse:
@@ -25,6 +101,22 @@ definitions:
     required:
     - latitude
     - longitude
+    type: object
+  handler.GetNearbyRidesRequest:
+    properties:
+      lat:
+        type: number
+      limit:
+        description: max number of rides to return, default 50
+        type: integer
+      lng:
+        type: number
+      max_distance:
+        description: in meters, default 10000
+        type: number
+    required:
+    - lat
+    - lng
     type: object
   handler.LoginCustomerRequest:
     properties:
@@ -75,10 +167,38 @@ definitions:
       pickup_lng:
         type: number
     type: object
-  handler.SetOnlineStatusRequest:
+  handler.RideStatusResponse:
     properties:
-      is_online:
-        type: boolean
+      accepted_at:
+        type: string
+      cancelled_at:
+        type: string
+      completed_at:
+        type: string
+      customer_id:
+        type: integer
+      driver:
+        allOf:
+        - $ref: '#/definitions/handler.DriverInfo'
+        description: Driver information (only if ride is accepted/started/completed)
+      dropoff_lat:
+        type: number
+      dropoff_lng:
+        type: number
+      fare:
+        type: number
+      pickup_lat:
+        type: number
+      pickup_lng:
+        type: number
+      requested_at:
+        type: string
+      ride_id:
+        type: integer
+      started_at:
+        type: string
+      status:
+        type: string
     type: object
   handler.UpdateLocationRequest:
     properties:
@@ -92,6 +212,42 @@ definitions:
       otp:
         type: string
       phone:
+        type: string
+    type: object
+  service.RideWithCustomerInfo:
+    properties:
+      customer_current_lat:
+        description: Customer's current location (pickup)
+        type: number
+      customer_current_lng:
+        description: Customer's current location (pickup)
+        type: number
+      customer_id:
+        type: integer
+      customer_name:
+        type: string
+      customer_phone:
+        type: string
+      distance_from_driver:
+        description: in meters
+        type: number
+      dropoff_lat:
+        description: Destination/drop location
+        type: number
+      dropoff_lng:
+        description: Destination/drop location
+        type: number
+      pickup_lat:
+        description: Same as customer current location
+        type: number
+      pickup_lng:
+        description: Same as customer current location
+        type: number
+      requested_at:
+        type: string
+      ride_id:
+        type: integer
+      status:
         type: string
     type: object
 host: localhost:8080
@@ -283,42 +439,6 @@ paths:
       summary: Register a new driver
       tags:
       - Drivers
-  /drivers/status:
-    post:
-      consumes:
-      - application/json
-      description: Update whether the driver is available to accept rides
-      parameters:
-      - description: Driver's online status
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handler.SetOnlineStatusRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Status updated successfully
-          schema:
-            $ref: '#/definitions/handler.MessageResponse'
-        "400":
-          description: Invalid request
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Set driver online/offline status
-      tags:
-      - Drivers
   /rides:
     post:
       consumes:
@@ -441,28 +561,35 @@ paths:
       summary: Complete a ride
       tags:
       - Rides
-  /rides/nearby:
-    post:
+  /rides/details:
+    get:
       consumes:
       - application/json
-      description: Find nearest available drivers within a specified radius
+      description: Get detailed information about a specific ride including customer
+        info
       parameters:
-      - description: Search parameters for nearest drivers
-        in: body
-        name: request
+      - description: Ride ID
+        in: query
+        name: ride_id
         required: true
-        schema:
-          $ref: '#/definitions/handler.FindNearestDriversRequest'
+        type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: List of nearest drivers
+          description: Ride details with customer information
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/service.RideWithCustomerInfo'
         "400":
           description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Ride not found
           schema:
             $ref: '#/definitions/handler.ErrorResponse'
         "500":
@@ -471,7 +598,46 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Find nearest drivers
+      summary: Get ride details
+      tags:
+      - Rides
+  /rides/nearby:
+    post:
+      consumes:
+      - application/json
+      description: Driver polls this endpoint to get available rides within a radius.
+        Returns rides with status "requested" or "pending" updated within last 5 minutes.
+      parameters:
+      - description: Driver location and search parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.GetNearbyRidesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of nearby available rides
+          schema:
+            items:
+              $ref: '#/definitions/domain.Ride'
+            type: array
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized - driver must be logged in
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get nearby available rides for driver
       tags:
       - Rides
   /rides/start:
@@ -499,6 +665,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Start a ride
+      tags:
+      - Rides
+  /rides/status:
+    get:
+      consumes:
+      - application/json
+      description: Get current status of a ride including driver information and location
+        if driver has accepted
+      parameters:
+      - description: Ride ID
+        in: query
+        name: ride_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ride status with driver information
+          schema:
+            $ref: '#/definitions/handler.RideStatusResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Forbidden - not your ride
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Ride not found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get ride status for customer
       tags:
       - Rides
 securityDefinitions:

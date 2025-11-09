@@ -182,56 +182,57 @@ func (h *DriverHandler) UpdateLocation(c echo.Context) error {
 	return c.JSON(http.StatusOK, MessageResponse{Message: "Location updated successfully"})
 }
 
-// SetOnlineStatus handles driver online/offline status
-// @Summary Set driver online/offline status
-// @Description Update whether the driver is available to accept rides
-// @Tags Drivers
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body SetOnlineStatusRequest true "Driver's online status"
-// @Success 200 {object} MessageResponse "Status updated successfully"
-// @Failure 400 {object} ErrorResponse "Invalid request"
-// @Failure 401 {object} ErrorResponse "Unauthorized"
-// @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /drivers/status [post]
-func (h *DriverHandler) SetOnlineStatus(c echo.Context) error {
-	ctx := c.Request().Context()
-	driverID, ok := middleware.GetUserIDFromEcho(c)
-	if !ok {
-		logger.Error(ctx, errors.New("missing user id"))
-		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
-	}
-	fmt.Println("Driver ID from context:", driverID)
-
-	role, ok := middleware.GetUserRoleFromEcho(c)
-	if !ok {
-		logger.Error(ctx, errors.New("missing user role"))
-		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
-	}
-	if role != "driver" {
-		logger.Error(ctx, errors.New("invalid role"))
-		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
-	}
-
-	var req SetOnlineStatusRequest
-	if err := c.Bind(&req); err != nil {
-		logger.Error(ctx, err)
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-	}
-
-	err := h.service.SetOnlineStatus(ctx, driverID, req.IsOnline)
-	if err != nil {
-		logger.Error(ctx, err)
-		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
-	}
-
-	status := "offline"
-	if req.IsOnline {
-		status = "online"
-	}
-	return c.JSON(http.StatusOK, MessageResponse{Message: "Driver is now " + status})
-}
+//
+//// SetOnlineStatus handles driver online/offline status
+//// @Summary Set driver online/offline status
+//// @Description Update whether the driver is available to accept rides
+//// @Tags Drivers
+//// @Accept json
+//// @Produce json
+//// @Security BearerAuth
+//// @Param request body SetOnlineStatusRequest true "Driver's online status"
+//// @Success 200 {object} MessageResponse "Status updated successfully"
+//// @Failure 400 {object} ErrorResponse "Invalid request"
+//// @Failure 401 {object} ErrorResponse "Unauthorized"
+//// @Failure 500 {object} ErrorResponse "Internal server error"
+//// @Router /drivers/status [post]
+//func (h *DriverHandler) SetOnlineStatus(c echo.Context) error {
+//	ctx := c.Request().Context()
+//	driverID, ok := middleware.GetUserIDFromEcho(c)
+//	if !ok {
+//		logger.Error(ctx, errors.New("missing user id"))
+//		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
+//	}
+//	fmt.Println("Driver ID from context:", driverID)
+//
+//	role, ok := middleware.GetUserRoleFromEcho(c)
+//	if !ok {
+//		logger.Error(ctx, errors.New("missing user role"))
+//		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+//	}
+//	if role != "driver" {
+//		logger.Error(ctx, errors.New("invalid role"))
+//		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
+//	}
+//
+//	var req SetOnlineStatusRequest
+//	if err := c.Bind(&req); err != nil {
+//		logger.Error(ctx, err)
+//		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+//	}
+//
+//	err := h.service.SetOnlineStatus(ctx, driverID, req.IsOnline)
+//	if err != nil {
+//		logger.Error(ctx, err)
+//		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+//	}
+//
+//	status := "offline"
+//	if req.IsOnline {
+//		status = "online"
+//	}
+//	return c.JSON(http.StatusOK, MessageResponse{Message: "Driver is now " + status})
+//}
 
 // FindNearestDrivers finds nearest available drivers
 // @Summary Find nearest drivers

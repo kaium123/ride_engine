@@ -50,6 +50,7 @@ type RideStatus string
 
 const (
 	RideStatusRequested RideStatus = "requested"
+	RideStatusPending   RideStatus = "pending" // Alternative status for requested rides
 	RideStatusAccepted  RideStatus = "accepted"
 	RideStatusStarted   RideStatus = "started"
 	RideStatusCompleted RideStatus = "completed"
@@ -108,8 +109,8 @@ func ValidateDriver(d *Driver) error {
 
 // Accept marks the ride as accepted by a driver
 func (r *Ride) Accept(driverID int64) error {
-	if r.Status != RideStatusRequested {
-		return errors.New("ride is not in requested status")
+	if r.Status != RideStatusRequested && r.Status != RideStatusPending {
+		return errors.New("ride is not in requested or pending status")
 	}
 	now := time.Now()
 	r.DriverID = &driverID

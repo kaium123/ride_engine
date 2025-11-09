@@ -75,12 +75,31 @@ func (h *RideHandler) RequestRide(c echo.Context) error {
 	return c.JSON(http.StatusCreated, ride)
 }
 
-// GetNearbyRides handles getting nearby rides for drivers
+type GetNearbyRidesRequest struct {
+	Lat         float64 `json:"lat" validate:"required"`
+	Lng         float64 `json:"lng" validate:"required"`
+	MaxDistance float64 `json:"max_distance"` // in meters, default 10000
+	Limit       int     `json:"limit"`        // max number of rides to return, default 50
+}
+
+// GetNearbyRides handles getting nearby rides for drivers (Short Polling Endpoint)
+// @Summary Get nearby available rides for driver
+// @Description Driver polls this endpoint to get available rides within a radius. Returns rides with status "requested" or "pending" updated within last 5 minutes.
+// @Tags Rides
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body GetNearbyRidesRequest true "Driver location and search parameters"
+// @Success 200 {array} domain.Ride "List of nearby available rides"
+// @Failure 400 {object} ErrorResponse "Invalid request parameters"
+// @Failure 401 {object} ErrorResponse "Unauthorized - driver must be logged in"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /rides/nearby [post]
 func (h *RideHandler) GetNearbyRides(c echo.Context) error {
 	ctx := c.Request().Context()
 	driverID, ok := middleware.GetUserIDFromEcho(c)
 	if !ok {
-		logger.Error(ctx, errors.New("missing customer ID in context"))
+		logger.Error(ctx, errors.New("missing driver ID in context"))
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
 	}
 	fmt.Println("Driver ID from context:", driverID)
@@ -95,19 +114,34 @@ func (h *RideHandler) GetNearbyRides(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
 	}
 
-	latStr := c.QueryParam("lat")
-	lngStr := c.QueryParam("lng")
-	maxDistStr := c.QueryParam("max_distance")
-
-	lat, _ := strconv.ParseFloat(latStr, 64)
-	lng, _ := strconv.ParseFloat(lngStr, 64)
-	maxDistance, _ := strconv.ParseFloat(maxDistStr, 64)
-
-	if maxDistance == 0 {
-		maxDistance = 10000 // default 10km in meters
+	var req GetNearbyRidesRequest
+	if err := c.Bind(&req); err != nil {
+		logger.Error(ctx, err)
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request body"})
 	}
 
-	rides, err := h.service.GetNearbyRides(ctx, driverID, lat, lng, maxDistance)
+	// Validate required fields
+	if req.Lat == 0 || req.Lng == 0 {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "lat and lng are required"})
+	}
+
+	// Set defaults
+	if req.MaxDistance == 0 {
+		req.MaxDistance = 10000 // default 10km in meters
+	}
+	if req.Limit == 0 {
+		req.Limit = 50 // default 50 rides
+	}
+
+	// Validate limits
+	if req.Limit > 100 {
+		req.Limit = 100 // cap at 100 rides
+	}
+	if req.Limit < 1 {
+		req.Limit = 1 // minimum 1 ride
+	}
+
+	rides, err := h.service.GetNearbyRides(ctx, driverID, req.Lat, req.Lng, req.MaxDistance, req.Limit)
 	if err != nil {
 		logger.Error(ctx, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
@@ -176,6 +210,24 @@ func (h *RideHandler) AcceptRide(c echo.Context) error {
 // @Router /rides/start [post]
 func (h *RideHandler) StartRide(c echo.Context) error {
 	ctx := c.Request().Context()
+
+	driverID, ok := middleware.GetUserIDFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing customer ID in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
+	}
+	fmt.Println("Driver ID from context:", driverID)
+
+	role, ok := middleware.GetUserRoleFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing role in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+	}
+	if role != "driver" {
+		logger.Error(ctx, errors.New("role is not driver"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
+	}
+
 	rideIDStr := c.QueryParam("ride_id")
 	rideID, err := strconv.ParseInt(rideIDStr, 10, 64)
 	if err != nil {
@@ -205,6 +257,24 @@ func (h *RideHandler) StartRide(c echo.Context) error {
 // @Router /rides/complete [post]
 func (h *RideHandler) CompleteRide(c echo.Context) error {
 	ctx := c.Request().Context()
+
+	driverID, ok := middleware.GetUserIDFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing customer ID in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
+	}
+	fmt.Println("Driver ID from context:", driverID)
+
+	role, ok := middleware.GetUserRoleFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing role in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+	}
+	if role != "driver" {
+		logger.Error(ctx, errors.New("role is not driver"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
+	}
+
 	rideIDStr := c.QueryParam("ride_id")
 	rideID, err := strconv.ParseInt(rideIDStr, 10, 64)
 	if err != nil {
@@ -234,6 +304,24 @@ func (h *RideHandler) CompleteRide(c echo.Context) error {
 // @Router /rides/cancel [post]
 func (h *RideHandler) CancelRide(c echo.Context) error {
 	ctx := c.Request().Context()
+
+	driverID, ok := middleware.GetUserIDFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing customer ID in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
+	}
+	fmt.Println("Driver ID from context:", driverID)
+
+	role, ok := middleware.GetUserRoleFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing role in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+	}
+	if role != "driver" {
+		logger.Error(ctx, errors.New("role is not driver"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
+	}
+
 	rideIDStr := c.QueryParam("ride_id")
 	rideID, err := strconv.ParseInt(rideIDStr, 10, 64)
 	if err != nil {
@@ -248,4 +336,214 @@ func (h *RideHandler) CancelRide(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, MessageResponse{Message: "Ride cancelled successfully"})
+}
+
+// GetRideDetails handles getting ride details by ride_id
+// @Summary Get ride details
+// @Description Get detailed information about a specific ride including customer info
+// @Tags Rides
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param ride_id query integer true "Ride ID"
+// @Success 200 {object} service.RideWithCustomerInfo "Ride details with customer information"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 404 {object} ErrorResponse "Ride not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /rides/details [get]
+func (h *RideHandler) GetRideDetails(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	driverID, ok := middleware.GetUserIDFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing customer ID in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing driver ID in context"})
+	}
+	fmt.Println("Driver ID from context:", driverID)
+
+	role, ok := middleware.GetUserRoleFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing role in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+	}
+	if role != "driver" {
+		logger.Error(ctx, errors.New("role is not driver"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role in context"})
+	}
+
+	// Parse ride_id from query parameter
+	rideIDStr := c.QueryParam("ride_id")
+	if rideIDStr == "" {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "ride_id is required"})
+	}
+
+	rideID, err := strconv.ParseInt(rideIDStr, 10, 64)
+	if err != nil {
+		logger.Error(ctx, err)
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid ride_id"})
+	}
+
+	// Get ride details with customer info
+	rideDetails, err := h.service.GetRideDetailsWithCustomer(ctx, rideID)
+	if err != nil {
+		logger.Error(ctx, err)
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, rideDetails)
+}
+
+type RideStatusResponse struct {
+	RideID      int64    `json:"ride_id"`
+	CustomerID  int64    `json:"customer_id"`
+	PickupLat   float64  `json:"pickup_lat"`
+	PickupLng   float64  `json:"pickup_lng"`
+	DropoffLat  float64  `json:"dropoff_lat"`
+	DropoffLng  float64  `json:"dropoff_lng"`
+	Status      string   `json:"status"`
+	Fare        *float64 `json:"fare,omitempty"`
+	RequestedAt string   `json:"requested_at"`
+	AcceptedAt  *string  `json:"accepted_at,omitempty"`
+	StartedAt   *string  `json:"started_at,omitempty"`
+	CompletedAt *string  `json:"completed_at,omitempty"`
+	CancelledAt *string  `json:"cancelled_at,omitempty"`
+
+	// Driver information (only if ride is accepted/started/completed)
+	Driver *DriverInfo `json:"driver,omitempty"`
+}
+
+type DriverInfo struct {
+	DriverID   int64    `json:"driver_id"`
+	Name       string   `json:"name"`
+	Phone      string   `json:"phone"`
+	VehicleNo  string   `json:"vehicle_no"`
+	CurrentLat *float64 `json:"current_lat,omitempty"`  // Driver's current location
+	CurrentLng *float64 `json:"current_lng,omitempty"`  // Driver's current location
+	LastPingAt *string  `json:"last_ping_at,omitempty"` // Last location update time
+}
+
+type SendRideRequestToDriverRequest struct {
+	RideID   int64 `json:"ride_id" validate:"required"`
+	DriverID int64 `json:"driver_id" validate:"required"`
+}
+
+//
+//// SendRideRequestToDriver handles sending a specific ride request to a specific driver
+//// @Summary Send ride request to driver
+//// @Description Send a ride request notification to a specific driver
+//// @Tags Rides
+//// @Accept json
+//// @Produce json
+//// @Security BearerAuth
+//// @Param request body SendRideRequestToDriverRequest true "Ride and Driver IDs"
+//// @Success 200 {object} MessageResponse "Ride request sent successfully"
+//// @Failure 400 {object} ErrorResponse "Invalid request"
+//// @Failure 401 {object} ErrorResponse "Unauthorized"
+//// @Failure 500 {object} ErrorResponse "Internal server error"
+//// @Router /rides/send-request [post]
+//func (h *RideHandler) SendRideRequestToDriver(c echo.Context) error {
+//
+//	ctx := c.Request().Context()
+//	customerID, ok := middleware.GetUserIDFromEcho(c)
+//	if !ok {
+//		logger.Error(ctx, errors.New("no user id from context"))
+//		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing customer ID in context"})
+//	}
+//	fmt.Println("customer ID from context:", customerID)
+//
+//	role, ok := middleware.GetUserRoleFromEcho(c)
+//	if !ok {
+//		logger.Error(ctx, errors.New("no user role from context"))
+//		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+//	}
+//
+//	if role != "customer" {
+//		logger.Error(ctx, errors.New("invalid role"))
+//		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role"})
+//	}
+//
+//	// Parse request body
+//	var req SendRideRequestToDriverRequest
+//	if err := c.Bind(&req); err != nil {
+//		logger.Error(ctx, err)
+//		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request body"})
+//	}
+//
+//	// Validate required fields
+//	if req.RideID == 0 || req.DriverID == 0 {
+//		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "ride_id and driver_id are required"})
+//	}
+//
+//	// Send ride request to driver
+//	err := h.service.SendRideRequestToDriver(ctx, req.RideID, req.DriverID)
+//	if err != nil {
+//		logger.Error(ctx, err)
+//		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+//	}
+//
+//	return c.JSON(http.StatusOK, MessageResponse{Message: "Ride request sent to driver successfully"})
+//}
+
+// GetRideStatus handles getting ride status for customers
+// @Summary Get ride status for customer
+// @Description Get current status of a ride including driver information and location if driver has accepted
+// @Tags Rides
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param ride_id query integer true "Ride ID"
+// @Success 200 {object} RideStatusResponse "Ride status with driver information"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 403 {object} ErrorResponse "Forbidden - not your ride"
+// @Failure 404 {object} ErrorResponse "Ride not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /rides/status [get]
+func (h *RideHandler) GetRideStatus(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	customerID, ok := middleware.GetUserIDFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing customer ID in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing customer ID in context"})
+	}
+
+	role, ok := middleware.GetUserRoleFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("missing role in context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+	}
+
+	if role != "customer" {
+		logger.Error(ctx, errors.New("invalid role"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "only customers can check ride status"})
+	}
+
+	// Parse ride_id from query parameter
+	rideIDStr := c.QueryParam("ride_id")
+	if rideIDStr == "" {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "ride_id is required"})
+	}
+
+	rideID, err := strconv.ParseInt(rideIDStr, 10, 64)
+	if err != nil {
+		logger.Error(ctx, err)
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid ride_id"})
+	}
+
+	// Get ride status with driver information
+	rideStatus, err := h.service.GetRideStatusForCustomer(ctx, rideID, customerID)
+	if err != nil {
+		logger.Error(ctx, err)
+		if err.Error() == "ride not found" {
+			return c.JSON(http.StatusNotFound, ErrorResponse{Error: err.Error()})
+		}
+		if err.Error() == "forbidden: this ride belongs to another customer" {
+			return c.JSON(http.StatusForbidden, ErrorResponse{Error: err.Error()})
+		}
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, rideStatus)
 }

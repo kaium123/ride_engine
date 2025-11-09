@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"time"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
 
@@ -53,6 +54,10 @@ func (r *LocationMongoRepository) UpdateDriverLocation(ctx context.Context, driv
 }
 
 func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, lng float64, maxDistance float64, limit int) ([]int64, error) {
+	// Calculate cutoff time (2 minutes ago)
+	// Only consider drivers whose location was updated within the last 2 minutes
+	cutoffTime := time.Now().Add(-2 * time.Minute)
+
 	filter := bson.M{
 		"location": bson.M{
 			"$nearSphere": bson.M{
@@ -62,6 +67,10 @@ func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, l
 				},
 				"$maxDistance": maxDistance, // in meters
 			},
+		},
+		// Filter: only include drivers who updated their location within last 2 minutes
+		"updated_at": bson.M{
+			"$gte": cutoffTime,
 		},
 	}
 
@@ -83,4 +92,26 @@ func (r *LocationMongoRepository) FindNearestDrivers(ctx context.Context, lat, l
 	}
 
 	return driverIDs, nil
+}
+
+func (r *LocationMongoRepository) GetDriverLocation(ctx context.Context, driverID int64) (lat, lng float64, updatedAt *time.Time, err error) {
+	filter := bson.M{"driver_id": driverID}
+
+	var location repository.DriverLocation
+	err = r.collection.FindOne(ctx, filter).Decode(&location)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return 0, 0, nil, errors.New("driver location not found")
+		}
+		logger.Error(ctx, err)
+		return 0, 0, nil, err
+	}
+
+	// Extract coordinates [lng, lat]
+	if len(location.Location.Coordinates) >= 2 {
+		lng = location.Location.Coordinates[0]
+		lat = location.Location.Coordinates[1]
+	}
+
+	return lat, lng, &location.UpdatedAt, nil
 }

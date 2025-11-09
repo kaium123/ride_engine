@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository"
 )
@@ -22,4 +23,9 @@ func (s *LocationService) UpdateDriverLocation(ctx context.Context, driverID int
 // FindNearestDrivers finds drivers within maxDistance (in meters)
 func (s *LocationService) FindNearestDrivers(ctx context.Context, lat, lng float64, maxDistance float64, limit int) ([]int64, error) {
 	return s.repo.FindNearestDrivers(ctx, lat, lng, maxDistance, limit)
+}
+
+// GetDriverLocation retrieves driver's current location from MongoDB
+func (s *LocationService) GetDriverLocation(ctx context.Context, driverID int64) (lat, lng float64, updatedAt *time.Time, err error) {
+	return s.repo.GetDriverLocation(ctx, driverID)
 }

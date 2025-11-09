@@ -1,4 +1,4 @@
-.PHONY: help build run docker-up docker-down docker-logs test clean
+.PHONY: help build run docker-up docker-down docker-logs test clean swagger-init swagger-update swagger
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -8,12 +8,12 @@ help: ## Show this help message
 
 build: ## Build the application
 	@echo "Building application..."
-	@go build -o bin/ride_engine ./cmd/api
+	@go build -o bin/ride_engine main.go
 	@echo "Build complete: bin/ride_engine"
 
 run: ## Run the application
 	@echo "Running application..."
-	@go run ./cmd/api/main.go
+	@go run main.go serve
 
 docker-up: ## Start Docker containers
 	@echo "Starting Docker containers..."
@@ -62,5 +62,21 @@ migrate-up: ## Run database migrations (placeholder)
 
 db-reset: docker-down docker-clean docker-up ## Reset databases
 	@echo "Databases reset complete!"
+
+swagger-init: ## Initialize Swagger documentation (first time setup)
+	@echo "Installing swag CLI tool..."
+	@go install github.com/swaggo/swag/cmd/swag@latest
+	@echo "Initializing Swagger documentation..."
+	@swag init -g main.go -o docs --parseDependency --parseInternal
+	@echo "Swagger documentation initialized in docs/ directory"
+	@echo "View at: http://localhost:8080/swagger/index.html"
+
+swagger-update: ## Update Swagger documentation
+	@echo "Updating Swagger documentation..."
+	@swag init -g main.go -o docs --parseDependency --parseInternal
+	@echo "Swagger documentation updated!"
+	@echo "View at: http://localhost:8080/swagger/index.html"
+
+swagger: swagger-update ## Alias for swagger-update
 
 .DEFAULT_GOAL := help

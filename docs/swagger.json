@@ -286,63 +286,6 @@
                 }
             }
         },
-        "/drivers/status": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update whether the driver is available to accept rides",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Drivers"
-                ],
-                "summary": "Set driver online/offline status",
-                "parameters": [
-                    {
-                        "description": "Driver's online status",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.SetOnlineStatusRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Status updated successfully",
-                        "schema": {
-                            "$ref": "#/definitions/handler.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "$ref": "#/definitions/handler.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/handler.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/handler.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/rides": {
             "post": {
                 "security": [
@@ -536,14 +479,14 @@
                 }
             }
         },
-        "/rides/nearby": {
-            "post": {
+        "/rides/details": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Find nearest available drivers within a specified radius",
+                "description": "Get detailed information about a specific ride including customer info",
                 "consumes": [
                     "application/json"
                 ],
@@ -553,28 +496,97 @@
                 "tags": [
                     "Rides"
                 ],
-                "summary": "Find nearest drivers",
+                "summary": "Get ride details",
                 "parameters": [
                     {
-                        "description": "Search parameters for nearest drivers",
+                        "type": "integer",
+                        "description": "Ride ID",
+                        "name": "ride_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ride details with customer information",
+                        "schema": {
+                            "$ref": "#/definitions/service.RideWithCustomerInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Ride not found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/rides/nearby": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Driver polls this endpoint to get available rides within a radius. Returns rides with status \"requested\" or \"pending\" updated within last 5 minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rides"
+                ],
+                "summary": "Get nearby available rides for driver",
+                "parameters": [
+                    {
+                        "description": "Driver location and search parameters",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.FindNearestDriversRequest"
+                            "$ref": "#/definitions/handler.GetNearbyRidesRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of nearest drivers",
+                        "description": "List of nearby available rides",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Ride"
+                            }
                         }
                     },
                     "400": {
-                        "description": "Invalid request",
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - driver must be logged in",
                         "schema": {
                             "$ref": "#/definitions/handler.ErrorResponse"
                         }
@@ -630,14 +642,187 @@
                     }
                 }
             }
+        },
+        "/rides/status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current status of a ride including driver information and location if driver has accepted",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rides"
+                ],
+                "summary": "Get ride status for customer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Ride ID",
+                        "name": "ride_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ride status with driver information",
+                        "schema": {
+                            "$ref": "#/definitions/handler.RideStatusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - not your ride",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Ride not found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "domain.Ride": {
+            "type": "object",
+            "properties": {
+                "accepted_at": {
+                    "type": "string"
+                },
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "integer"
+                },
+                "driver_id": {
+                    "type": "integer"
+                },
+                "dropoff_lat": {
+                    "type": "number"
+                },
+                "dropoff_lng": {
+                    "type": "number"
+                },
+                "fare": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "pickup_lat": {
+                    "type": "number"
+                },
+                "pickup_lng": {
+                    "type": "number"
+                },
+                "requested_at": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.RideStatus"
+                }
+            }
+        },
+        "domain.RideStatus": {
+            "type": "string",
+            "enum": [
+                "requested",
+                "pending",
+                "accepted",
+                "started",
+                "completed",
+                "cancelled"
+            ],
+            "x-enum-comments": {
+                "RideStatusPending": "Alternative status for requested rides"
+            },
+            "x-enum-descriptions": [
+                "",
+                "Alternative status for requested rides",
+                "",
+                "",
+                "",
+                ""
+            ],
+            "x-enum-varnames": [
+                "RideStatusRequested",
+                "RideStatusPending",
+                "RideStatusAccepted",
+                "RideStatusStarted",
+                "RideStatusCompleted",
+                "RideStatusCancelled"
+            ]
+        },
         "handler.AuthResponse": {
             "type": "object",
             "properties": {
                 "customer": {},
                 "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.DriverInfo": {
+            "type": "object",
+            "properties": {
+                "current_lat": {
+                    "description": "Driver's current location",
+                    "type": "number"
+                },
+                "current_lng": {
+                    "description": "Driver's current location",
+                    "type": "number"
+                },
+                "driver_id": {
+                    "type": "integer"
+                },
+                "last_ping_at": {
+                    "description": "Last location update time",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "vehicle_no": {
                     "type": "string"
                 }
             }
@@ -668,6 +853,29 @@
                     "type": "number"
                 },
                 "radius": {
+                    "type": "number"
+                }
+            }
+        },
+        "handler.GetNearbyRidesRequest": {
+            "type": "object",
+            "required": [
+                "lat",
+                "lng"
+            ],
+            "properties": {
+                "lat": {
+                    "type": "number"
+                },
+                "limit": {
+                    "description": "max number of rides to return, default 50",
+                    "type": "integer"
+                },
+                "lng": {
+                    "type": "number"
+                },
+                "max_distance": {
+                    "description": "in meters, default 10000",
                     "type": "number"
                 }
             }
@@ -748,11 +956,55 @@
                 }
             }
         },
-        "handler.SetOnlineStatusRequest": {
+        "handler.RideStatusResponse": {
             "type": "object",
             "properties": {
-                "is_online": {
-                    "type": "boolean"
+                "accepted_at": {
+                    "type": "string"
+                },
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "integer"
+                },
+                "driver": {
+                    "description": "Driver information (only if ride is accepted/started/completed)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handler.DriverInfo"
+                        }
+                    ]
+                },
+                "dropoff_lat": {
+                    "type": "number"
+                },
+                "dropoff_lng": {
+                    "type": "number"
+                },
+                "fare": {
+                    "type": "number"
+                },
+                "pickup_lat": {
+                    "type": "number"
+                },
+                "pickup_lng": {
+                    "type": "number"
+                },
+                "requested_at": {
+                    "type": "string"
+                },
+                "ride_id": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -774,6 +1026,57 @@
                     "type": "string"
                 },
                 "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.RideWithCustomerInfo": {
+            "type": "object",
+            "properties": {
+                "customer_current_lat": {
+                    "description": "Customer's current location (pickup)",
+                    "type": "number"
+                },
+                "customer_current_lng": {
+                    "description": "Customer's current location (pickup)",
+                    "type": "number"
+                },
+                "customer_id": {
+                    "type": "integer"
+                },
+                "customer_name": {
+                    "type": "string"
+                },
+                "customer_phone": {
+                    "type": "string"
+                },
+                "distance_from_driver": {
+                    "description": "in meters",
+                    "type": "number"
+                },
+                "dropoff_lat": {
+                    "description": "Destination/drop location",
+                    "type": "number"
+                },
+                "dropoff_lng": {
+                    "description": "Destination/drop location",
+                    "type": "number"
+                },
+                "pickup_lat": {
+                    "description": "Same as customer current location",
+                    "type": "number"
+                },
+                "pickup_lng": {
+                    "description": "Same as customer current location",
+                    "type": "number"
+                },
+                "requested_at": {
+                    "type": "string"
+                },
+                "ride_id": {
+                    "type": "integer"
+                },
+                "status": {
                     "type": "string"
                 }
             }

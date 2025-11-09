@@ -39,7 +39,7 @@ func createNewMigration(cmd *cobra.Command, args []string) {
 
 		migrationOutputDirectory := "/" + NormalizePath(fmt.Sprintf("%s/pkg/migrations/migrations", cwd))
 		processedEntityName := utils.ProcessString(entityName)
-		cmd := exec.Command("migrate", "create", "-ext", "sql", "-dir", migrationOutputDirectory, "-format", fmt.Sprintf("%d", time.Now().Unix()), processedEntityName.SnakeCaseLower)
+		cmd := exec.Command("migrate", "create", "-ext", "sql", "-dir", migrationOutputDirectory, "-format", fmt.Sprintf("%d", time.Now().Unix()+10000), processedEntityName.SnakeCaseLower)
 		// Run the command and get the output and error if any
 		output, err := cmd.CombinedOutput()
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"time"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/domain"
+	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository"
 	"vcs.technonext.com/carrybee/ride_engine/internal/ride_engine/repository/postgres"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/config"
 	"vcs.technonext.com/carrybee/ride_engine/pkg/logger"
@@ -14,16 +15,18 @@ import (
 )
 
 type DriverService struct {
-	driverRepo      *postgres.DriverPostgresRepository
-	otpService      *OTPService
-	locationService *LocationService
-	jwtSecret       string
-	jwtExpiry       int
-	redis           *redis.Client
+	driverRepo       *postgres.DriverPostgresRepository
+	onlineStatusRepo repository.OnlineStatusRepository
+	otpService       *OTPService
+	locationService  *LocationService
+	jwtSecret        string
+	jwtExpiry        int
+	redis            *redis.Client
 }
 
 func NewDriverService(
 	driverRepo *postgres.DriverPostgresRepository,
+	onlineStatusRepo repository.OnlineStatusRepository,
 	otpService *OTPService,
 	locationService *LocationService,
 	jwtSecret string,
@@ -31,12 +34,13 @@ func NewDriverService(
 	redis *redis.Client,
 ) *DriverService {
 	return &DriverService{
-		driverRepo:      driverRepo,
-		otpService:      otpService,
-		locationService: locationService,
-		jwtSecret:       jwtSecret,
-		jwtExpiry:       jwtExpiry,
-		redis:           redis,
+		driverRepo:       driverRepo,
+		onlineStatusRepo: onlineStatusRepo,
+		otpService:       otpService,
+		locationService:  locationService,
+		jwtSecret:        jwtSecret,
+		jwtExpiry:        jwtExpiry,
+		redis:            redis,
 	}
 }
 
@@ -141,25 +145,50 @@ func (s *DriverService) VerifyOTP(ctx context.Context, phone, otp string) (*doma
 }
 
 // UpdateLocation updates driver's location in both PostgreSQL and MongoDB
+// Automatically sets driver as online when they ping their location
 func (s *DriverService) UpdateLocation(ctx context.Context, driverID int64, lat, lng float64) error {
-	now := time.Now()
+	//now := time.Now()
+	//
+	//// Update ping time and location in PostgreSQL drivers table
+	//if err := s.driverRepo.UpdatePing(ctx, driverID, lat, lng, now); err != nil {
+	//	logger.Error(ctx, fmt.Sprintf("error updating driver ping: %v", err))
+	//	return err
+	//}
+	//
+	//// Update online status table with ping - this automatically marks driver as online
+	//if err := s.onlineStatusRepo.UpsertOnlineDriver(ctx, driverID, lat, lng); err != nil {
+	//	logger.Error(ctx, fmt.Sprintf("error updating online status: %v", err))
+	//	return err
+	//}
 
-	if err := s.driverRepo.UpdatePing(ctx, driverID, lat, lng, now); err != nil {
-		logger.Error(ctx, fmt.Sprintf("error updating driver: %v", err))
-		return err
-	}
-
+	// Update location in MongoDB for geospatial queries
 	if err := s.locationService.UpdateDriverLocation(ctx, driverID, lat, lng); err != nil {
-		logger.Error(ctx, fmt.Sprintf("error updating driver: %v", err))
+		logger.Error(ctx, fmt.Sprintf("error updating driver location: %v", err))
 		return err
 	}
+
+	//// Also update the driver's is_online flag in the main drivers table for consistency
+	//if err := s.driverRepo.SetOnlineStatus(ctx, driverID, true); err != nil {
+	//	logger.Error(ctx, fmt.Sprintf("error setting driver online: %v", err))
+	//	return err
+	//}
 
 	return nil
 }
 
 // SetOnlineStatus manually sets driver online/offline
 func (s *DriverService) SetOnlineStatus(ctx context.Context, driverID int64, isOnline bool) error {
-	return s.driverRepo.SetOnlineStatus(ctx, driverID, isOnline)
+	// Update main drivers table
+	if err := s.driverRepo.SetOnlineStatus(ctx, driverID, isOnline); err != nil {
+		return err
+	}
+
+	// If going offline, remove from online_drivers table
+	if !isOnline {
+		return s.onlineStatusRepo.SetDriverOffline(ctx, driverID)
+	}
+
+	return nil
 }
 
 // GetByID retrieves a driver by ID
@@ -179,11 +208,23 @@ func (s *DriverService) MonitorDriverActivity(ctx context.Context) {
 			return
 		case <-ticker.C:
 			cutoff := time.Now().Add(-60 * time.Second)
+
+			// Remove inactive drivers from online_drivers table
+			if err := s.onlineStatusRepo.RemoveInactiveDrivers(ctx, cutoff); err != nil {
+				logger.Error(ctx, fmt.Sprintf("error removing inactive drivers: %v", err))
+			}
+
+			// Also mark them offline in main drivers table for consistency
 			if err := s.driverRepo.MarkOfflineIfInactive(ctx, cutoff); err != nil {
-				logger.Error(ctx, fmt.Sprintf("error updating driver: %v", err))
+				logger.Error(ctx, fmt.Sprintf("error updating driver status: %v", err))
 			}
 		}
 	}
+}
+
+// IsDriverOnline checks if a driver is currently online
+func (s *DriverService) IsDriverOnline(ctx context.Context, driverID int64) (bool, error) {
+	return s.onlineStatusRepo.IsDriverOnline(ctx, driverID)
 }
 
 func (s *DriverService) GetNearestDrivers(ctx context.Context, lat, lng, radius float64, limit int) ([]int64, error) {
@@ -193,5 +234,12 @@ func (s *DriverService) GetNearestDrivers(ctx context.Context, lat, lng, radius 
 	if limit <= 0 {
 		limit = 5
 	}
-	return s.locationService.FindNearestDrivers(ctx, lat, lng, radius, limit)
+
+	// Find nearest drivers by location (already filtered by updated_at within 2 minutes in MongoDB)
+	nearestDrivers, err := s.locationService.FindNearestDrivers(ctx, lat, lng, radius, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return nearestDrivers, nil
 }

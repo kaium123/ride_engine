@@ -83,43 +83,33 @@ CREATE INDEX idx_otp_phone ON otp_records(phone);
 CREATE INDEX idx_otp_expires_at ON otp_records(expires_at);
 CREATE INDEX idx_otp_created_at ON otp_records(created_at);
 
--- Create views for easier querying
-CREATE OR REPLACE VIEW active_rides AS
-SELECT
-    r.*,
-    c.name as customer_name,
-    c.phone as customer_phone,
-    d.name as driver_name,
-    d.phone as driver_phone
-FROM rides r
-JOIN customers c ON r.customer_id = c.id
-LEFT JOIN drivers d ON r.driver_id = d.id
-WHERE r.status IN ('requested', 'accepted', 'started');
+-- Online drivers table (tracks active/online drivers separately)
+CREATE TABLE online_drivers (
+    driver_id BIGINT PRIMARY KEY REFERENCES drivers(id) ON DELETE CASCADE,
+    is_online BOOLEAN NOT NULL DEFAULT TRUE,
+    last_ping_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    went_online_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    current_lat DOUBLE PRECISION,
+    current_lng DOUBLE PRECISION,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-CREATE OR REPLACE VIEW online_drivers AS
-SELECT
-    id,
-    name,
-    phone,
-    vehicle_no,
-    current_lat,
-    current_lng,
-    last_ping_at,
-    CASE
-        WHEN last_ping_at > NOW() - INTERVAL '60 seconds' THEN 'active'
-        ELSE 'inactive'
-    END as activity_status
-FROM drivers
-WHERE is_online = TRUE;
+-- Indexes for online drivers
+CREATE INDEX idx_online_drivers_is_online ON online_drivers(is_online);
+CREATE INDEX idx_online_drivers_last_ping ON online_drivers(last_ping_at);
+CREATE INDEX idx_online_drivers_location ON online_drivers(current_lat, current_lng);
 
 -- Comments for documentation
 COMMENT ON TABLE customers IS 'Stores customer/rider information with authentication';
 COMMENT ON TABLE drivers IS 'Stores driver information with real-time location and online status';
 COMMENT ON TABLE rides IS 'Stores ride requests and tracking information';
 COMMENT ON TABLE otp_records IS 'Stores OTP records for audit trail and security monitoring';
+COMMENT ON TABLE online_drivers IS 'Tracks currently online/active drivers with real-time location and ping status';
 COMMENT ON COLUMN drivers.last_ping_at IS 'Last heartbeat from driver app - used for auto offline detection';
 COMMENT ON COLUMN rides.fare IS 'Calculated fare for the ride';
 COMMENT ON COLUMN otp_records.purpose IS 'Purpose of OTP: driver_login, customer_verification, password_reset, etc';
+COMMENT ON COLUMN online_drivers.last_ping_at IS 'Last location ping from driver - used to detect inactive drivers';
+COMMENT ON COLUMN online_drivers.went_online_at IS 'Timestamp when driver went online in current session';
 
 -- Insert sample data (optional - remove in production)
 -- Sample customer

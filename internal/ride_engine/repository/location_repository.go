@@ -21,4 +21,5 @@ type GeoJSON struct {
 type LocationRepository interface {
 	UpdateDriverLocation(ctx context.Context, driverID int64, lat, lng float64) error
 	FindNearestDrivers(ctx context.Context, lat, lng float64, maxDistance float64, limit int) ([]int64, error)
+	GetDriverLocation(ctx context.Context, driverID int64) (lat, lng float64, updatedAt *time.Time, err error)
 }

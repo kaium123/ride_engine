@@ -60,5 +60,5 @@ func down(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	logger.Info(context.Background(), "Creating tables and indices successful!")
+	logger.Info(context.Background(), "Migration down successful!")
 }

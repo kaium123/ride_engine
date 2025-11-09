@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -83,14 +84,18 @@ func Load() *Config {
 			Database: getEnv("MONGODB_DATABASE", "ride_engine"),
 		},
 		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "localhost:6389"),
+			Addr:     getRedisAddr(),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
 			Secret:     getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
-			Expiration: getEnvAsInt("JWT_EXPIRATION_HOURS", 1000),
+			Expiration: getJWTExpiration(),
 		},
+	}
+
+	if cnf.Environment == "development" {
+		cnf.JWT.Expiration = 10000 // 10000 second expiry
 	}
 	return &cnf
 }
@@ -115,4 +120,31 @@ func getEnvAsInt(key string, defaultValue int) int {
 		return value
 	}
 	return defaultValue
+}
+
+func getRedisAddr() string {
+	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
+		return addr
+	}
+
+	host := getEnv("REDIS_HOST", "localhost")
+	port := getEnv("REDIS_PORT", "6379")
+	return fmt.Sprintf("%s:%s", host, port)
+}
+
+func getJWTExpiration() int {
+	if expStr := os.Getenv("JWT_EXPIRATION"); expStr != "" {
+		if duration, err := time.ParseDuration(expStr); err == nil {
+			return int(duration.Hours())
+		}
+		if hours, err := strconv.Atoi(expStr); err == nil {
+			return hours
+		}
+	}
+
+	if hours := getEnvAsInt("JWT_EXPIRATION_HOURS", 0); hours > 0 {
+		return hours
+	}
+
+	return 24
 }
