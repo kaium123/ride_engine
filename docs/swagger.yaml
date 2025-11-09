@@ -12,6 +12,20 @@ definitions:
         example: Invalid request
         type: string
     type: object
+  handler.FindNearestDriversRequest:
+    properties:
+      latitude:
+        type: number
+      limit:
+        type: integer
+      longitude:
+        type: number
+      radius:
+        type: number
+    required:
+    - latitude
+    - longitude
+    type: object
   handler.LoginCustomerRequest:
     properties:
       email:
@@ -428,29 +442,17 @@ paths:
       tags:
       - Rides
   /rides/nearby:
-    get:
+    post:
       consumes:
       - application/json
       description: Find nearest available drivers within a specified radius
       parameters:
-      - description: Latitude of the location
-        in: query
-        name: lat
+      - description: Search parameters for nearest drivers
+        in: body
+        name: request
         required: true
-        type: number
-      - description: Longitude of the location
-        in: query
-        name: lng
-        required: true
-        type: number
-      - description: 'Search radius in meters (default: 3000)'
-        in: query
-        name: radius
-        type: number
-      - description: 'Maximum number of drivers to return (default: 5)'
-        in: query
-        name: limit
-        type: integer
+        schema:
+          $ref: '#/definitions/handler.FindNearestDriversRequest'
       produces:
       - application/json
       responses:

@@ -42,6 +42,7 @@ func NewDriverService(
 
 // Register creates a new driver account
 func (s *DriverService) Register(ctx context.Context, name, phone, vehicleNo string) (*domain.Driver, error) {
+
 	existingDriver, err := s.driverRepo.GetByPhone(ctx, phone)
 	if err == nil && existingDriver != nil {
 		logger.Error(ctx, fmt.Sprintf("driver with phone %s already exists", phone))
@@ -71,6 +72,12 @@ func (s *DriverService) Register(ctx context.Context, name, phone, vehicleNo str
 
 // RequestOTP generates and sends OTP to driver's phone
 func (s *DriverService) RequestOTP(ctx context.Context, phone string) error {
+	// Validate input parameters
+	if phone == "" {
+		logger.Error(ctx, "phone is required")
+		return errors.New("phone is required")
+	}
+
 	_, err := s.driverRepo.GetByPhone(ctx, phone)
 	if err != nil {
 		logger.Error(ctx, fmt.Sprintf("driver with phone %s not found", phone))
@@ -94,6 +101,12 @@ func (s *DriverService) RequestOTP(ctx context.Context, phone string) error {
 
 // VerifyOTP verifies OTP and logs in the driver
 func (s *DriverService) VerifyOTP(ctx context.Context, phone, otp string) (*domain.Driver, string, error) {
+	// Validate input parameters
+	if phone == "" || otp == "" {
+		logger.Error(ctx, "phone and OTP are required")
+		return nil, "", errors.New("phone and OTP are required")
+	}
+
 	valid, err := s.otpService.VerifyOTP(ctx, phone, otp)
 	if err != nil {
 		logger.Error(ctx, fmt.Sprintf("error verifying otp: %v", err))

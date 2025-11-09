@@ -131,7 +131,7 @@ func (m *AuthMiddleware) AuthEcho(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("user_role", claims.Role)
 		c.Set("driver_id", claims.UserID)
 
-		fmt.Println("driver id from JWT:", claims.UserID)
+		fmt.Println("user id from JWT:", claims.UserID, " role: ", claims.Role)
 		return next(c)
 	}
 }

@@ -543,7 +543,7 @@ const docTemplate = `{
             }
         },
         "/rides/nearby": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -562,30 +562,13 @@ const docTemplate = `{
                 "summary": "Find nearest drivers",
                 "parameters": [
                     {
-                        "type": "number",
-                        "description": "Latitude of the location",
-                        "name": "lat",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "number",
-                        "description": "Longitude of the location",
-                        "name": "lng",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "number",
-                        "description": "Search radius in meters (default: 3000)",
-                        "name": "radius",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of drivers to return (default: 5)",
-                        "name": "limit",
-                        "in": "query"
+                        "description": "Search parameters for nearest drivers",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.FindNearestDriversRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -671,6 +654,27 @@ const docTemplate = `{
                 "error": {
                     "type": "string",
                     "example": "Invalid request"
+                }
+            }
+        },
+        "handler.FindNearestDriversRequest": {
+            "type": "object",
+            "required": [
+                "latitude",
+                "longitude"
+            ],
+            "properties": {
+                "latitude": {
+                    "type": "number"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "longitude": {
+                    "type": "number"
+                },
+                "radius": {
+                    "type": "number"
                 }
             }
         },

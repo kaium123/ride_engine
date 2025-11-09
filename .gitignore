@@ -16,6 +16,8 @@ vendor/
 
 storage/
 
+docker_volume/
+
 # Go workspace file
 go.work
 

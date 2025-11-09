@@ -31,6 +31,11 @@ func NewCustomerService(repo repository.CustomerRepository, jwtSecret string, jw
 
 // Register creates a new customer account
 func (s *CustomerService) Register(ctx context.Context, name, email, phone, password string) (*domain.Customer, string, error) {
+	if name == "" || email == "" || phone == "" || password == "" {
+		logger.Error(ctx, "all fields are required")
+		return nil, "", errors.New("all fields are required")
+	}
+
 	existingCustomer, _, err := s.repo.GetByEmail(ctx, email)
 	if err == nil && existingCustomer != nil {
 		logger.Error(ctx, "Customer with email already exists")
@@ -78,6 +83,11 @@ func (s *CustomerService) Register(ctx context.Context, name, email, phone, pass
 
 // Login authenticates a customer
 func (s *CustomerService) Login(ctx context.Context, email, password string) (*domain.Customer, string, error) {
+	if email == "" || password == "" {
+		logger.Error(ctx, "email and password are required")
+		return nil, "", errors.New("invalid email or password")
+	}
+
 	customer, hashedPassword, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		logger.Error(ctx, err)
@@ -96,7 +106,6 @@ func (s *CustomerService) Login(ctx context.Context, email, password string) (*d
 	}
 
 	key := fmt.Sprintf("jwt:user:%d", customer.ID)
-	fmt.Println(key)
 	err = s.redis.Set(ctx, key, token, time.Duration(s.jwtExpiry)*time.Second).Err()
 	if err != nil {
 		logger.Error(ctx, err)

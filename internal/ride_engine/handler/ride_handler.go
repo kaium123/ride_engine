@@ -49,6 +49,17 @@ func (h *RideHandler) RequestRide(c echo.Context) error {
 	}
 	fmt.Println("customer ID from context:", customerID)
 
+	role, ok := middleware.GetUserRoleFromEcho(c)
+	if !ok {
+		logger.Error(ctx, errors.New("no user role from context"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "missing role in context"})
+	}
+
+	if role != "customer" {
+		logger.Error(ctx, errors.New("invalid role"))
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid role"})
+	}
+
 	var req RequestRideRequest
 	if err := c.Bind(&req); err != nil {
 		logger.Error(ctx, err)

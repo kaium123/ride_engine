@@ -6,13 +6,23 @@ API_BASE="http://localhost:8080/api/v1"
 echo "👤 Registering customer..."
 curl -s --location "$API_BASE/customers/register" \
   --header 'Content-Type: application/json' \
-  --data '{"email": "abc1@gmail.com", "phone": "01875113839"}' > /dev/null
+  --data '
+  {
+      "email": "kaium@gmail.com",
+      "phone": "01875113843",
+      "name": "kaium",
+      "password": "123456"
+  }
+  ' > /dev/null
 
 # 2️⃣ Login customer
 echo "🔑 Logging in customer..."
 CUSTOMER_LOGIN_RESP=$(curl -s --location "$API_BASE/customers/login" \
   --header 'Content-Type: application/json' \
-  --data '{"email": "abc1@gmail.com", "phone": "01875113839"}')
+  --data '{
+              "email": "kaium@gmail.com",
+              "password": "123456"
+          }')
 
 echo "🧩 Raw login response: $CUSTOMER_LOGIN_RESP"
 
